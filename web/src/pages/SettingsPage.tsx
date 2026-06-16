@@ -1,20 +1,127 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Server, Clock, Bell, Download, Info, ChevronRight } from 'lucide-react'
+import { Server, Clock, Bell, Download, Info, ChevronRight, Layers } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useQuery } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
+import { useDevices } from '../hooks/useDevices'
+import { useToast } from '../components/Toast'
 import { api } from '../api/client'
 
-type Tab = 'devices' | 'polling' | 'alerting' | 'backup' | 'about'
+type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'about'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'devices', label: 'Device Management', icon: Server },
   { id: 'polling', label: 'Polling Configuration', icon: Clock },
   { id: 'alerting', label: 'Alerting', icon: Bell },
+  { id: 'bulk', label: 'Bulk Configuration', icon: Layers },
   { id: 'backup', label: 'Backup & Restore', icon: Download },
   { id: 'about', label: 'About', icon: Info },
 ]
+
+function BulkConfigSettings() {
+  const { data } = useDevices()
+  const { notify } = useToast()
+  const devices = data?.devices ?? []
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [section, setSection] = useState<'protocols' | 'syslog'>('syslog')
+  const [syslog, setSyslog] = useState({ server: '', port: '514', enable: true })
+  const [protocols, setProtocols] = useState({ mdns_enable: '1', ember_server_port: '3344', sap_announcement_enable: '0' })
+  const [busy, setBusy] = useState(false)
+
+  const toggle = (id: string) => setSelected(s => {
+    const n = new Set(s)
+    n.has(id) ? n.delete(id) : n.add(id)
+    return n
+  })
+
+  const apply = async () => {
+    if (selected.size === 0) { notify('error', 'Select at least one device.'); return }
+    setBusy(true)
+    try {
+      const res = await api.bulkConfig(
+        section === 'syslog'
+          ? { device_ids: [...selected], section, syslog: { server: syslog.server, port: Number(syslog.port) || 514, enable: syslog.enable } }
+          : { device_ids: [...selected], section, protocols },
+      )
+      const ok = res.results.filter(r => r.success).length
+      const failed = res.results.length - ok
+      notify(failed ? 'error' : 'success', `Applied to ${ok}/${res.results.length} device(s)${failed ? `; ${failed} failed` : ''}.`)
+    } catch (e) {
+      notify('error', `Bulk apply failed: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="max-w-lg space-y-5">
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2.5 text-xs text-amber-300">
+        Bulk changes are written to every selected live device and audited per device.
+      </div>
+
+      <div>
+        <label className="label">Section</label>
+        <div className="flex gap-1.5">
+          {(['syslog', 'protocols'] as const).map(s => (
+            <button key={s} onClick={() => setSection(s)}
+              className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium capitalize',
+                section === s ? 'bg-surface-700 text-slate-100' : 'text-slate-500 hover:bg-surface-800')}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {section === 'syslog' ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><label className="label">Syslog Server</label>
+            <input className="input" value={syslog.server} placeholder="192.168.1.10" onChange={e => setSyslog({ ...syslog, server: e.target.value })} /></div>
+          <div><label className="label">Port</label>
+            <input className="input" value={syslog.port} onChange={e => setSyslog({ ...syslog, port: e.target.value })} /></div>
+          <label className="flex items-center gap-2 text-xs text-slate-400 mt-6">
+            <input type="checkbox" checked={syslog.enable} onChange={e => setSyslog({ ...syslog, enable: e.target.checked })} /> Enabled
+          </label>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <input type="checkbox" checked={protocols.mdns_enable === '1'} onChange={e => setProtocols({ ...protocols, mdns_enable: e.target.checked ? '1' : '0' })} /> mDNS
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <input type="checkbox" checked={protocols.sap_announcement_enable === '1'} onChange={e => setProtocols({ ...protocols, sap_announcement_enable: e.target.checked ? '1' : '0' })} /> SAP Announce
+          </label>
+          <div className="col-span-2"><label className="label">Ember+ Port</label>
+            <input className="input" value={protocols.ember_server_port} onChange={e => setProtocols({ ...protocols, ember_server_port: e.target.value })} /></div>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="label mb-0">Target Devices ({selected.size})</label>
+          <button className="text-xs text-brand-400 hover:text-brand-300"
+            onClick={() => setSelected(selected.size === devices.length ? new Set() : new Set(devices.map(d => d.id)))}>
+            {selected.size === devices.length ? 'Clear all' : 'Select all'}
+          </button>
+        </div>
+        <div className="card divide-y divide-surface-800 max-h-60 overflow-y-auto">
+          {devices.map(d => (
+            <label key={d.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-surface-800/50">
+              <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggle(d.id)} />
+              <span className="text-xs text-slate-300">{d.name}</span>
+              <span className="text-xs text-slate-600 font-mono ml-auto">{d.management_ip_red || d.management_ip_blue}</span>
+            </label>
+          ))}
+          {devices.length === 0 && <p className="text-xs text-slate-500 p-3">No devices.</p>}
+        </div>
+      </div>
+
+      <button className="btn-primary" onClick={apply} disabled={busy}>
+        {busy ? 'Applying…' : `Apply to ${selected.size} device(s)`}
+      </button>
+    </div>
+  )
+}
 
 function AlertingSettings() {
   const { data: config, isLoading } = useQuery({ queryKey: ['config'], queryFn: () => api.getConfig() })
@@ -94,28 +201,27 @@ function PollingSettings() {
 }
 
 function BackupRestore() {
-  const exportData = () => {
-    // In a real implementation this would call an API endpoint that streams the DB
-    alert('Export endpoint not yet implemented. Coming in Phase 4.')
-  }
-
   return (
     <div className="max-w-md space-y-4">
       <div className="card p-4">
         <h3 className="text-sm font-medium text-slate-100 mb-2">Export Database</h3>
         <p className="text-xs text-slate-500 mb-4">
-          Download a complete backup of the SQLite database including device inventory and poll history.
+          Download a consistent snapshot of the SQLite database (device inventory,
+          poll history, alerts, and audit log) via SQLite <span className="font-mono">VACUUM INTO</span> —
+          safe to run while the server is live.
         </p>
-        <button className="btn-secondary" onClick={exportData}>
+        <a className="btn-secondary" href={api.databaseBackupUrl()} download>
           <Download className="w-4 h-4" /> Export Database
-        </button>
+        </a>
       </div>
-      <div className="card p-4 opacity-60">
+      <div className="card p-4">
         <h3 className="text-sm font-medium text-slate-100 mb-2">Restore Database</h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Upload a previously exported database file. Coming in Phase 4.
+        <p className="text-xs text-slate-500">
+          To restore, stop the server and replace the database file at
+          {' '}<span className="font-mono text-slate-400">data/embrionix.db</span>{' '}
+          with an exported snapshot, then start the server. Live in-place restore is
+          intentionally not supported to avoid corrupting an open database.
         </p>
-        <button className="btn-secondary" disabled>Restore Database</button>
       </div>
     </div>
   )
@@ -176,7 +282,7 @@ function AboutPage() {
   )
 }
 
-const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'backup', 'about']
+const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'bulk', 'backup', 'about']
 
 export function SettingsPage() {
   const { tab } = useParams<{ tab?: string }>()
@@ -224,6 +330,7 @@ export function SettingsPage() {
           {activeTab === 'devices'  && <DevicesPage />}
           {activeTab === 'polling'  && <PollingSettings />}
           {activeTab === 'alerting' && <AlertingSettings />}
+          {activeTab === 'bulk'     && <BulkConfigSettings />}
           {activeTab === 'backup'   && <BackupRestore />}
           {activeTab === 'about'    && <AboutPage />}
         </div>

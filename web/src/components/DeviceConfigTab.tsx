@@ -1,14 +1,15 @@
-import { useState } from 'react'
-import { RefreshCw, Lock, Pencil, X, Power, RotateCcw } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { RefreshCw, Lock, Pencil, X, Power, RotateCcw, Download, Upload } from 'lucide-react'
 import { clsx } from 'clsx'
 import {
   useDeviceConfig, useUpdateNetwork, useUpdateProtocols, useUpdateSyslog,
   useUpdateRoutes, useRebootDevice, useConfigReset,
 } from '../hooks/useDevices'
+import { api } from '../api/client'
 import { useToast } from './Toast'
 import { ConfirmDialog } from './ConfirmDialog'
 import type {
-  NetworkConfig, ProtocolsConfig, SyslogConfig, StaticRoute, ConfigResetScope,
+  NetworkConfig, ProtocolsConfig, SyslogConfig, StaticRoute, ConfigResetScope, DeviceConfig,
 } from '../types/device'
 
 function Row({ label, value, mono }: { label: string; value?: string | number | null; mono?: boolean }) {
@@ -69,6 +70,44 @@ function SectionHeader({ title, editing, onEdit, onCancel }: {
 export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active: boolean }) {
   const { data: config, isLoading, isError, error, refetch, isFetching } = useDeviceConfig(deviceId, active)
   const { notify } = useToast()
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [pendingImport, setPendingImport] = useState<DeviceConfig | null>(null)
+  const [includeNetwork, setIncludeNetwork] = useState(false)
+  const [importing, setImporting] = useState(false)
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    try {
+      const parsed = JSON.parse(await file.text())
+      const cfg: DeviceConfig | undefined = parsed.config ?? parsed
+      if (!cfg || typeof cfg !== 'object') throw new Error('unrecognised file')
+      setIncludeNetwork(false)
+      setPendingImport(cfg)
+    } catch (err) {
+      notify('error', `Could not read snapshot: ${(err as Error).message}`)
+    }
+  }
+
+  const doImport = async () => {
+    if (!pendingImport) return
+    setImporting(true)
+    try {
+      const res = await api.importDeviceConfig(deviceId, pendingImport, includeNetwork)
+      if (res.failed.length) {
+        notify('error', `Restored ${res.applied.join(', ') || 'nothing'}; failed: ${res.failed.join(', ')}`)
+      } else {
+        notify('success', `Restored: ${res.applied.join(', ') || 'no sections'}.`)
+      }
+      refetch()
+    } catch (err) {
+      notify('error', `Restore failed: ${(err as Error).message}`)
+    } finally {
+      setImporting(false)
+      setPendingImport(null)
+    }
+  }
 
   if (isLoading) return <div className="text-slate-500 text-sm p-4">Loading configuration…</div>
   if (isError) {
@@ -88,10 +127,39 @@ export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active
           <Lock className="w-3.5 h-3.5 text-slate-500" />
           Changes are written to the live device and recorded in the audit log. Network changes reboot the device.
         </div>
-        <button className="btn-ghost p-1.5" onClick={() => refetch()} disabled={isFetching} title="Refresh">
-          <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <a className="btn-ghost p-1.5" href={api.configExportUrl(deviceId)} download title="Export snapshot (JSON)">
+            <Download className="w-4 h-4" />
+          </a>
+          <button className="btn-ghost p-1.5" onClick={() => fileInput.current?.click()} title="Restore from snapshot">
+            <Upload className="w-4 h-4" />
+          </button>
+          <button className="btn-ghost p-1.5" onClick={() => refetch()} disabled={isFetching} title="Refresh">
+            <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
+          </button>
+          <input ref={fileInput} type="file" accept="application/json" className="hidden" onChange={onFile} />
+        </div>
       </div>
+
+      {pendingImport && (
+        <ConfirmDialog
+          danger
+          title="Restore configuration from snapshot?"
+          message={
+            <div className="space-y-2">
+              <p>This writes protocols, syslog, and static routes from the snapshot to the live device.</p>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={includeNetwork} onChange={e => setIncludeNetwork(e.target.checked)} />
+                Also restore network settings (<strong>reboots the device</strong>)
+              </label>
+            </div>
+          }
+          confirmLabel="Restore"
+          busy={importing}
+          onConfirm={doImport}
+          onCancel={() => setPendingImport(null)}
+        />
+      )}
 
       <div className="grid sm:grid-cols-2 gap-4">
         {config.network && <NetworkSection deviceId={deviceId} data={config.network} notify={notify} />}
