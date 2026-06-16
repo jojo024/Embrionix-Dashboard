@@ -146,6 +146,45 @@ is one alarm attributed to a device; unreachable devices contribute a single
 }
 ```
 
+### `GET /api/v1/alerts`
+
+Status-transition history (the alert log). Optional `device` query param scopes
+to one device; `limit` caps the count (default 100).
+
+**Response 200**
+```json
+{
+  "alerts": [
+    {
+      "id": 42,
+      "device_id": "uuid",
+      "device_name": "EM6-MCR-01",
+      "from_status": "online",
+      "to_status": "critical",
+      "message": "Device is now critical",
+      "created_at": "2026-06-16T14:21:55Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+> `GET /api/v1/alarms` returns *currently active* conditions; `GET /api/v1/alerts`
+> returns the *historical record* of status changes.
+
+### `GET /api/v1/config`
+
+Effective non-sensitive runtime configuration (polling + alerting). The webhook
+URL is reported only as `webhook_enabled` (boolean), never echoed back.
+
+**Response 200**
+```json
+{
+  "polling": { "interval_seconds": 30, "timeout_seconds": 10, "icmp_enabled": true, "history_retention_days": 30 },
+  "alerting": { "temp_warning_c": 70, "temp_critical_c": 75, "response_warning_ms": 2000, "webhook_enabled": false, "webhook_on": ["critical", "offline"] }
+}
+```
+
 ### `GET /api/v1/devices/:id/history`
 
 Historical poll results for a device.
@@ -182,6 +221,13 @@ Historical poll results for a device.
   }
 ]
 ```
+
+### `GET /api/v1/devices/:id/history.csv`
+
+Streams the device's poll history as a CSV download (`Content-Disposition:
+attachment`). Columns: `polled_at, reachable, response_ms, core_temp, fan_speed,
+core_voltage, port0_tx_power, port0_rx_power, ptp_locked, ptp_offset`. Optional
+`limit` query param (default 1000).
 
 ### `POST /api/v1/devices/:id/poll`
 

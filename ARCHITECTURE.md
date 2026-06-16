@@ -31,7 +31,8 @@ cmd/server/main.go
       │
       ├── Services               internal/services/
       │     ├── DeviceService      (CRUD business logic)
-      │     ├── PollingService     (scheduler + state cache)
+      │     ├── PollingService     (scheduler + state cache + alerting)
+      │     ├── Notifier           (webhook delivery)
       │     └── EmsfpClient        (HTTP client for emSFP API)
       │
       └── API Router             internal/api/
@@ -135,6 +136,17 @@ Dual-path reachability uses a **TCP connect** to the management port rather than
 raw ICMP, so the server runs unprivileged. Gated by `polling.icmp_enabled`. See
 [ISSUES.md](ISSUES.md) for the rationale.
 
+### Alerting
+
+`deriveStatus()` applies the configured `alerting` thresholds (warning/critical
+temperature, slow-response) on top of device alarms. After each poll the service
+compares the new status against the previous in-memory status; a change is
+written as an `AlertEvent` (the status-change history) and, when the destination
+status is in `alerting.webhook_on`, delivered to the configured webhook by the
+`Notifier` in a detached goroutine. The webhook payload is Slack-compatible (a
+`text` field) and also carries the full structured event. First-poll and
+warm-up (`unknown → X`) transitions are not treated as alertable.
+
 ---
 
 ## Database Schema
@@ -143,6 +155,7 @@ raw ICMP, so the server runs unprivileged. Gated by `polling.icmp_enabled`. See
 |-------|---------|
 | `devices` | Device inventory (static config) |
 | `poll_results` | Time-series health snapshots |
+| `alert_events` | Status-transition history (alert log) |
 | `app_settings` | Key/value application configuration |
 
 SQLite WAL mode is enabled for concurrent reads. A single write connection is used (`MaxOpenConns=1`).
