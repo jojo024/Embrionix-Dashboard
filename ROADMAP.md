@@ -61,13 +61,21 @@
 
 **Goal:** Read and write device configuration safely through the dashboard.
 
-- [ ] View full device IP configuration (`/self/ipconfig`)
+### Phase 4a — Read-only views ✅
+- [x] View full device IP configuration (`/self/ipconfig`)
+- [x] View system config (`/self/system` — staging, min fan, ST 2022-7 class)
+- [x] View protocols (`/self/protocols` — mDNS, Ember+, SAP)
+- [x] View syslog configuration and monitoring events (`/self/syslog`)
+- [x] View static routes (`/self/static_route`)
+- [x] View DNS (`/self/diag/dns`)
+- [x] Configuration tab on device detail (on-demand fetch, read-only)
+
+### Phase 4b — Writes (for initial device setup)
 - [ ] Change management IP (static / DHCP toggle) with confirmation dialog
 - [ ] VLAN configuration (`ctl_vlan_id`, `ctl_vlan_pcp`, `ctl_vlan_enable`)
-- [ ] Syslog server configuration (`/self/syslog`)
+- [ ] Syslog server configuration write (`/self/syslog`)
 - [ ] Device reboot action with confirmation dialog
 - [ ] Application config reset action
-- [ ] Firmware slot management (`/self/firmware`) — view active/default slots
 - [ ] Configuration backup — export device config via API snapshot
 - [ ] Configuration restore — push saved config back to device
 - [ ] Database backup/restore (export/import SQLite file)

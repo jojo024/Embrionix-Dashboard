@@ -48,6 +48,17 @@ export function useAlertHistory(deviceId?: string, limit = 100) {
   });
 }
 
+// Read-only device configuration, fetched on demand (config changes rarely, so
+// no background refetch). `enabled` defers the fetch until the tab is opened.
+export function useDeviceConfig(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['device-config', id],
+    queryFn: () => api.getDeviceConfig(id),
+    enabled: enabled && !!id,
+    staleTime: 60_000,
+  });
+}
+
 export function useDeviceHistory(id: string) {
   return useQuery({
     queryKey: ['device-history', id],

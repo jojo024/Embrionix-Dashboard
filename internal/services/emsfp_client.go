@@ -525,6 +525,145 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 	return data, nil
 }
 
+// --- Read-only configuration endpoint structs ---
+
+type selfSystemConfig struct {
+	StagingMode int `json:"staging_mode"`
+	MinFanSpeed int `json:"min_fan_speed"`
+	SMPTENetwork struct {
+		ST20227 struct {
+			Class string `json:"class"`
+		} `json:"2022-7"`
+	} `json:"smpte_network"`
+}
+
+type selfSyslog struct {
+	Config struct {
+		Server string `json:"server"`
+		Port   int    `json:"port"`
+		Enable bool   `json:"enable"`
+	} `json:"config"`
+	Monitoring map[string]map[string]bool `json:"monitoring"`
+}
+
+type selfDiagDNS struct {
+	DNS struct {
+		ServerAddress string `json:"server_address"`
+		DomainName    string `json:"domain_name"`
+	} `json:"dns"`
+}
+
+type selfProtocols struct {
+	MDNSEnable            string `json:"mdns_enable"`
+	EmberServerPort       string `json:"ember_server_port"`
+	SAPAnnouncementEnable string `json:"sap_announcement_enable"`
+}
+
+// FetchConfig retrieves the device's read-only configuration on demand. Like
+// Poll, every endpoint is best-effort: an endpoint the device type does not
+// implement is skipped rather than failing the whole request. This method
+// performs GETs only — it never writes to the device.
+func (c *EmsfpClient) FetchConfig(ctx context.Context) (*models.DeviceConfig, error) {
+	cfg := &models.DeviceConfig{}
+
+	var ipcfg selfIPConfig
+	if err := c.get(ctx, "/self/ipconfig", &ipcfg); err != nil {
+		// ipconfig is the baseline; if it fails the device is unreachable.
+		return nil, fmt.Errorf("self/ipconfig: %w", err)
+	}
+	cfg.Network = &models.NetworkConfig{
+		MACAddress: ipcfg.LocalMAC,
+		IPAddress:  ipcfg.IPAddr,
+		SubnetMask: ipcfg.SubnetMask,
+		Gateway:    ipcfg.Gateway,
+		Hostname:   ipcfg.Hostname,
+		Port:       ipcfg.Port,
+		DHCPEnable: ipcfg.DHCPEnable,
+	}
+
+	// Re-read ipconfig into a map for the VLAN fields not on selfIPConfig.
+	var ipRaw map[string]interface{}
+	if err := c.get(ctx, "/self/ipconfig", &ipRaw); err == nil {
+		cfg.Network.CtlVLANID = asString(ipRaw["ctl_vlan_id"])
+		cfg.Network.CtlVLANPCP = asString(ipRaw["ctl_vlan_pcp"])
+		cfg.Network.CtlVLANEnable = asString(ipRaw["ctl_vlan_enable"])
+	}
+
+	var sys selfSystemConfig
+	if err := c.get(ctx, "/self/system", &sys); err == nil {
+		cfg.System = &models.SystemConfig{
+			StagingMode: sys.StagingMode,
+			MinFanSpeed: sys.MinFanSpeed,
+			SMPTE2022_7: sys.SMPTENetwork.ST20227.Class,
+		}
+	}
+
+	var proto selfProtocols
+	if err := c.get(ctx, "/self/protocols", &proto); err == nil {
+		cfg.Protocols = &models.ProtocolsConfig{
+			MDNSEnable:            proto.MDNSEnable,
+			EmberServerPort:       proto.EmberServerPort,
+			SAPAnnouncementEnable: proto.SAPAnnouncementEnable,
+		}
+	}
+
+	var sl selfSyslog
+	if err := c.get(ctx, "/self/syslog", &sl); err == nil {
+		cfg.Syslog = &models.SyslogConfig{
+			Server:     sl.Config.Server,
+			Port:       sl.Config.Port,
+			Enable:     sl.Config.Enable,
+			Monitoring: sl.Monitoring,
+		}
+	}
+
+	var routes map[string]struct {
+		Destination string `json:"destination"`
+		Gateway     string `json:"gateway"`
+	}
+	if err := c.get(ctx, "/self/static_route", &routes); err == nil {
+		names := make([]string, 0, len(routes))
+		for name := range routes {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			r := routes[name]
+			// Skip empty/unused slots (default route to 0.0.0.0).
+			if r.Destination == "0.0.0.0/0" && r.Gateway == "0.0.0.0" {
+				continue
+			}
+			cfg.StaticRoutes = append(cfg.StaticRoutes, models.StaticRoute{
+				Name:        name,
+				Destination: r.Destination,
+				Gateway:     r.Gateway,
+			})
+		}
+	}
+
+	var dns selfDiagDNS
+	if err := c.get(ctx, "/self/diag/dns", &dns); err == nil {
+		cfg.DNS = &models.DNSConfig{
+			ServerAddress: dns.DNS.ServerAddress,
+			DomainName:    dns.DNS.DomainName,
+		}
+	}
+
+	return cfg, nil
+}
+
+// asString coerces a JSON value (string or number) to a string for display.
+func asString(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return fmt.Sprintf("%g", t)
+	default:
+		return ""
+	}
+}
+
 // CheckReachability performs a simple GET to /self/information and measures response time.
 func (c *EmsfpClient) CheckReachability(ctx context.Context) (reachable bool, responseMs int64, err error) {
 	start := time.Now()

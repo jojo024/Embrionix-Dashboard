@@ -189,6 +189,37 @@ func boolPtr(v *bool) string {
 	return strconv.FormatBool(*v)
 }
 
+// GetDeviceConfig GET /api/v1/devices/:id/config
+// Fetches the device's read-only configuration on demand (GET-only; never
+// writes to the device).
+func (h *MonitoringHandler) GetDeviceConfig(c *gin.Context) {
+	device, err := h.deviceSvc.GetDevice(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	ip := device.ManagementIPRed
+	if ip == "" {
+		ip = device.ManagementIPBlue
+	}
+	if ip == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "device has no management IP configured"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(h.pollCfg.TimeoutSeconds)*time.Second)
+	defer cancel()
+
+	client := services.NewEmsfpClient(ip, "80", h.pollCfg.TimeoutSeconds)
+	cfg, err := client.FetchConfig(ctx)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"reachable": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cfg)
+}
+
 // GetDeviceReachability GET /api/v1/devices/:id/reachability
 func (h *MonitoringHandler) GetDeviceReachability(c *gin.Context) {
 	device, err := h.deviceSvc.GetDevice(c.Param("id"))
