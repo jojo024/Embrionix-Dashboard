@@ -278,6 +278,14 @@ Body `{ "username": "...", "password": "..." }` → `{ "token": "...", "user": {
 ### `GET /api/v1/auth/me`
 Reports `{ "auth_enabled": bool, "username": "...", "role": "..." }` for the caller.
 
+### `GET /api/v1/report.pdf`
+Downloads a PDF fleet report (status counts, active alarms, recent status
+changes). Viewer+. A text version of the same summary is delivered to the
+alerting webhook on the `reports.cron` schedule when `reports.enabled` is true.
+
+### `GET /api/v1/export/ansible`
+Device inventory as Ansible dynamic-inventory JSON (group `emsfp`).
+
 ### `GET/POST /api/v1/users`, `PUT/DELETE /api/v1/users/:id` (admin)
 List / create / update (role or password) / delete users. The last remaining
 account cannot be deleted.

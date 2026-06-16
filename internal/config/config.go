@@ -13,8 +13,17 @@ type Config struct {
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Polling  PollingConfig  `mapstructure:"polling"`
 	Alerting AlertingConfig `mapstructure:"alerting"`
+	Reports  ReportsConfig  `mapstructure:"reports"`
 	Auth     AuthConfig     `mapstructure:"auth"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+}
+
+// ReportsConfig controls scheduled fleet reports. The PDF report is always
+// available on demand; the scheduler only delivers a text summary to the
+// alerting webhook on the configured cron.
+type ReportsConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Cron    string `mapstructure:"cron"` // standard 5-field cron (e.g. "0 8 * * 1" = Mon 08:00)
 }
 
 // AuthConfig controls authentication and RBAC. Disabled by default so an
@@ -89,6 +98,8 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("alerting.response_warning_ms", 2000)
 	v.SetDefault("alerting.webhook_url", "")
 	v.SetDefault("alerting.webhook_on", []string{"critical", "offline"})
+	v.SetDefault("reports.enabled", false)
+	v.SetDefault("reports.cron", "0 8 * * 1")
 	v.SetDefault("auth.enabled", false)
 	v.SetDefault("auth.token_ttl_hours", 12)
 	v.SetDefault("auth.admin_username", "admin")

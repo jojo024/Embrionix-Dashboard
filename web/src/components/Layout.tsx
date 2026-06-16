@@ -92,13 +92,13 @@ export function Layout({ children }: Props) {
           <div className="flex-1" />
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className={clsx('status-dot', apiConnected ? 'status-online' : 'status-offline')} />
-            <span>{apiConnected ? 'API connected' : 'API disconnected'}</span>
+            <span className="hidden sm:inline">{apiConnected ? 'API connected' : 'API disconnected'}</span>
           </div>
           {authEnabled && username && (
             <div className="flex items-center gap-2 ml-3 pl-3 border-l border-surface-700">
-              <UserCircle className="w-4 h-4 text-slate-500" />
-              <span className="text-xs text-slate-300">{username}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-800 text-slate-400 capitalize">{role}</span>
+              <UserCircle className="w-4 h-4 text-slate-500 shrink-0" />
+              <span className="text-xs text-slate-300 hidden sm:inline">{username}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-800 text-slate-400 capitalize hidden sm:inline">{role}</span>
               <button className="btn-ghost p-1.5" onClick={logout} title="Sign out">
                 <LogOut className="w-4 h-4" />
               </button>

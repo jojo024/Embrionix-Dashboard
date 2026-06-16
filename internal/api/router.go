@@ -19,6 +19,7 @@ func NewRouter(
 	pollRepo *repositories.PollRepository,
 	authSvc *services.AuthService,
 	userRepo *repositories.UserRepository,
+	reportSvc *services.ReportService,
 ) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	r := gin.New()
@@ -41,6 +42,7 @@ func NewRouter(
 	configWriteHandler := handlers.NewConfigWriteHandler(deviceSvc, pollRepo, cfg.Polling.TimeoutSeconds)
 	backupHandler := handlers.NewBackupHandler(deviceSvc, pollRepo, configWriteHandler, cfg.Polling.TimeoutSeconds)
 	authHandler := handlers.NewAuthHandler(authSvc, userRepo)
+	reportHandler := handlers.NewReportHandler(reportSvc)
 
 	v1 := r.Group("/api/v1")
 
@@ -70,6 +72,7 @@ func NewRouter(
 	read.GET("/settings/:key", settingsHandler.GetSetting)
 	read.GET("/config", configHandler.GetConfig)
 	read.GET("/export/ansible", deviceHandler.GetAnsibleInventory)
+	read.GET("/report.pdf", reportHandler.GetReportPDF)
 
 	// --- Writes & device actions (operator+) ---
 	write.POST("/devices", deviceHandler.CreateDevice)
