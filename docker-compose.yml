@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  dashboard:
+    build: .
+    image: embrionix-dashboard:latest
+    container_name: embrionix-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
+    environment:
+      - EMB_SERVER_MODE=release
+      - EMB_LOGGING_LEVEL=info
+    networks:
+      - embrionix
+
+networks:
+  embrionix:
+    driver: bridge
