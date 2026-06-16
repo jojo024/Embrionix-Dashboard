@@ -29,6 +29,11 @@ alerting:
     - critical
     - offline
 
+reports:
+  enabled: false                 # OFF by default. The PDF report is always available on demand;
+                                 #   this only controls the scheduled webhook delivery of a text summary.
+  cron: "0 8 * * 1"              # standard 5-field cron — default: Mondays at 08:00. Needs alerting.webhook_url.
+
 auth:
   enabled: false                 # OFF by default — the dashboard runs with no login.
   jwt_secret: ""                 # REQUIRED when enabled (set a long random string / EMB_AUTH_JWT_SECRET)
