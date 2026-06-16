@@ -35,7 +35,15 @@ func NewEmsfpClient(ip string, port string, timeoutSec int) *EmsfpClient {
 					Timeout:   time.Duration(timeoutSec) * time.Second,
 					KeepAlive: 30 * time.Second,
 				}).DialContext,
-				DisableKeepAlives: true,
+				// Reuse one TCP connection for the many GETs in a single poll
+				// (the device's embedded HTTP server is the constrained party),
+				// but let it close shortly after so we don't tie up the device's
+				// limited connection slots between cycles.
+				DisableKeepAlives:   false,
+				MaxIdleConns:        2,
+				MaxIdleConnsPerHost: 2,
+				MaxConnsPerHost:     2,
+				IdleConnTimeout:     5 * time.Second,
 			},
 		},
 	}
@@ -294,11 +302,24 @@ func ptpStatusLabel(code string) (label string, locked bool) {
 	}
 }
 
-// Poll fetches all relevant data from the device and returns a DevicePollingData.
-func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, error) {
+// Poll fetches device data and returns a DevicePollingData.
+//
+// To minimise load on the device's embedded HTTP server, polling is tiered:
+//   - The "fast" tier (dynamic health: temp, fan, SFP power, PTP, bandwidth) is
+//     fetched on every call — ~6 requests.
+//   - The "slow" tier (static or heavy data: ipconfig, firmware, license,
+//     ethernet counters, interfaces, LLDP, media flows, SDI, and per-port SFP
+//     DDM detail) is fetched only when full is true; otherwise those fields are
+//     carried over from prev. This drops steady-state requests from ~17 to ~6.
+//
+// Alarms are derived once at the end from the final (fast + carried/fresh slow)
+// data, so they remain correct on light polls.
+func (c *EmsfpClient) Poll(ctx context.Context, full bool, prev *models.DevicePollingData) (*models.DevicePollingData, error) {
 	data := &models.DevicePollingData{}
 
-	// Fetch /self/information
+	// --- Fast tier (always) ---
+
+	// /self/information — also the reachability check, so a failure aborts.
 	var info selfInformation
 	if err := c.get(ctx, "/self/information", &info); err != nil {
 		return nil, fmt.Errorf("self/information: %w", err)
@@ -308,16 +329,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 	data.DeviceType = info.Type
 	data.PlatformHWVersion = info.PlatformHWVersion
 
-	// Fetch /self/ipconfig
-	var ipcfg selfIPConfig
-	if err := c.get(ctx, "/self/ipconfig", &ipcfg); err == nil {
-		data.Hostname = ipcfg.Hostname
-		data.IPAddress = ipcfg.IPAddr
-		data.DHCPEnable = ipcfg.DHCPEnable
-		data.MACAddress = ipcfg.LocalMAC
-	}
-
-	// Fetch /self/system (temp, fan, uptime)
 	var sys selfSystem
 	if err := c.get(ctx, "/self/system", &sys); err == nil {
 		data.CoreTemp = sys.CoreTemp
@@ -326,7 +337,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		data.Uptime = sys.Uptime
 	}
 
-	// Fetch /telemetry/node
 	var telNode telemetryNode
 	if err := c.get(ctx, "/telemetry/node", &telNode); err == nil {
 		if telNode.Health.CoreTemp > 0 {
@@ -339,7 +349,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		data.OffsetFromMaster = telNode.Refclk.OffsetFromMaster
 	}
 
-	// Fetch /telemetry/ports
 	var telPorts telemetryPorts
 	if err := c.get(ctx, "/telemetry/ports", &telPorts); err == nil {
 		for _, p := range telPorts.Ports {
@@ -352,7 +361,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		}
 	}
 
-	// Fetch /self/diag/refclk - detailed PTP status
 	var refclk selfDiagRefclk
 	if err := c.get(ctx, "/self/diag/refclk", &refclk); err == nil {
 		label, locked := ptpStatusLabel(refclk.Status)
@@ -368,24 +376,47 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 			CoarseUnlock:     refclk.Events.CoarseUnlock,
 			Unlock:           refclk.Events.Unlock,
 		}
-		// Backfill the simple refclk fields if telemetry/node did not populate them.
 		if data.RefclkStatus == "" {
 			data.RefclkStatus = label
 		}
 		if data.OffsetFromMaster == 0 {
 			data.OffsetFromMaster = refclk.OffsetFromMaster
 		}
-		if !locked {
-			data.Alarms = append(data.Alarms, fmt.Sprintf("PTP not locked (%s)", label))
-		}
 	}
 
-	// Fetch /self/firmware - firmware bank slots
+	var common selfDiagCommon
+	if err := c.get(ctx, "/self/diag/common", &common); err == nil {
+		data.VideoBandwidthUsage = common.Stats.VideoBandwidthUsage
+		data.WatchdogStatus = common.Stats.WatchdogStatus
+		data.IPv4PacketDrop = common.Stats.IPv4PacketDrop
+	}
+
+	// --- Slow tier (only on a full poll; otherwise carry forward) ---
+	if full {
+		c.pollSlow(ctx, data)
+	} else if prev != nil {
+		carrySlowData(data, prev)
+	}
+
+	buildAlarms(data)
+	return data, nil
+}
+
+// pollSlow fetches the static / heavy endpoints into data.
+func (c *EmsfpClient) pollSlow(ctx context.Context, data *models.DevicePollingData) {
+	var ipcfg selfIPConfig
+	if err := c.get(ctx, "/self/ipconfig", &ipcfg); err == nil {
+		data.Hostname = ipcfg.Hostname
+		data.IPAddress = ipcfg.IPAddr
+		data.DHCPEnable = ipcfg.DHCPEnable
+		data.MACAddress = ipcfg.LocalMAC
+	}
+
 	var fw selfFirmware
 	if err := c.get(ctx, "/self/firmware", &fw); err == nil {
 		for _, s := range fw.Info {
 			if s.ProductID == 0 && s.Version == "" {
-				continue // empty slot
+				continue
 			}
 			data.FirmwareSlots = append(data.FirmwareSlots, models.FirmwareSlot{
 				Slot:      s.Slot,
@@ -398,13 +429,11 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		}
 	}
 
-	// Fetch /self/license - licensed features
 	var lic selfLicense
 	if err := c.get(ctx, "/self/license", &lic); err == nil && len(lic.Feature) > 0 {
 		data.Licenses = lic.Feature
 	}
 
-	// Fetch /self/diag/ethernet - control-plane packet counters
 	var eth selfDiagEthernet
 	if err := c.get(ctx, "/self/diag/ethernet", &eth); err == nil {
 		data.Ethernet = &models.EthernetStats{
@@ -414,26 +443,10 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 			TxRate:    eth.Stats.TxRate,
 			RxRate:    eth.Stats.RxRate,
 		}
-		if eth.Stats.RxError != "" && eth.Stats.RxError != "N/A" && eth.Stats.RxError != "0" {
-			data.Alarms = append(data.Alarms, "Ethernet RX errors detected: "+eth.Stats.RxError)
-		}
 	}
 
-	// Fetch /self/diag/common - device health stats
-	var common selfDiagCommon
-	if err := c.get(ctx, "/self/diag/common", &common); err == nil {
-		data.VideoBandwidthUsage = common.Stats.VideoBandwidthUsage
-		data.WatchdogStatus = common.Stats.WatchdogStatus
-		data.IPv4PacketDrop = common.Stats.IPv4PacketDrop
-		if v := common.Stats.VideoBandwidthUsage; v != "" && v != "good" && v != "N/A" {
-			data.Alarms = append(data.Alarms, "Video bandwidth usage: "+v)
-		}
-	}
-
-	// Fetch /self/interfaces - per-interface network config
 	var ifaces map[string]selfInterfaceEntry
 	if err := c.get(ctx, "/self/interfaces", &ifaces); err == nil {
-		// Stable ordering by interface name (e1, e2, ...).
 		names := make([]string, 0, len(ifaces))
 		for name := range ifaces {
 			names = append(names, name)
@@ -453,7 +466,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		}
 	}
 
-	// Fetch /lldp - discovered neighbour
 	var lldp lldpResponse
 	if err := c.get(ctx, "/lldp", &lldp); err == nil && lldp.Neighbor.Chassis != "" {
 		data.LLDP = &models.LLDPNeighbor{
@@ -463,7 +475,6 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		}
 	}
 
-	// Fetch /telemetry/devices - media flow packet counters
 	var telDevices telemetryDevices
 	if err := c.get(ctx, "/telemetry/devices", &telDevices); err == nil {
 		for _, d := range telDevices.Devices {
@@ -483,29 +494,22 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 		}
 	}
 
-	// Fetch /sdi - SDI configuration (encap/decap devices only)
 	var sdi sdiResponse
 	if err := c.get(ctx, "/sdi", &sdi); err == nil {
 		data.SDIBitRate = sdi.Configuration.OperatingBitRate
 	}
 
-	// Gather alarms from SFP DDM data - attempt to get port list, then fetch each
+	// Per-port SFP DDM detail — the heaviest part (one request per port).
 	portListRaw := []string{}
 	if err := c.get(ctx, "/port", &portListRaw); err == nil {
 		for _, portEntry := range portListRaw {
 			portID := portEntry
-			// Remove trailing slash if present
 			if len(portID) > 0 && portID[len(portID)-1] == '/' {
 				portID = portID[:len(portID)-1]
 			}
 			var pi portInfo
 			if err := c.get(ctx, "/port/"+portID, &pi); err == nil {
-				pd := models.PortDetail{
-					PortID:  portID,
-					Link:    pi.Link,
-					Speed:   pi.Speed,
-					SFPType: pi.SFPType,
-				}
+				pd := models.PortDetail{PortID: portID, Link: pi.Link, Speed: pi.Speed, SFPType: pi.SFPType}
 				if pi.SFPDDMInfo != nil {
 					ddm := &models.SFPDDM{}
 					ddm.Temperature = models.DDMValue{
@@ -532,27 +536,61 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 						LowRxPower:      pi.SFPDDMInfo.AlarmStatus.LowRxPower,
 					}
 					pd.DDM = ddm
-
-					// Collect active alarms
-					if ddm.AlarmStatus.HighTemperature {
-						data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: High temperature alarm", portID))
-					}
-					if ddm.AlarmStatus.HighRxPower {
-						data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: High RX power alarm", portID))
-					}
-					if ddm.AlarmStatus.LowRxPower {
-						data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: Low RX power alarm", portID))
-					}
-					if ddm.AlarmStatus.LowTxPower {
-						data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: Low TX power alarm", portID))
-					}
 				}
 				data.PortDetails = append(data.PortDetails, pd)
 			}
 		}
 	}
+}
 
-	return data, nil
+// carrySlowData copies the static / heavy fields from a previous full poll onto
+// a light-poll result so the UI keeps showing them between full polls.
+func carrySlowData(data, prev *models.DevicePollingData) {
+	data.Hostname = prev.Hostname
+	data.IPAddress = prev.IPAddress
+	data.DHCPEnable = prev.DHCPEnable
+	data.MACAddress = prev.MACAddress
+	data.FirmwareSlots = prev.FirmwareSlots
+	data.Licenses = prev.Licenses
+	data.Ethernet = prev.Ethernet
+	data.Interfaces = prev.Interfaces
+	data.LLDP = prev.LLDP
+	data.MediaDevices = prev.MediaDevices
+	data.SDIBitRate = prev.SDIBitRate
+	data.PortDetails = prev.PortDetails
+}
+
+// buildAlarms derives the active-alarm list from the final polling data.
+func buildAlarms(data *models.DevicePollingData) {
+	if data.PTP != nil && !data.PTP.Locked {
+		data.Alarms = append(data.Alarms, fmt.Sprintf("PTP not locked (%s)", data.PTP.StatusLabel))
+	}
+	if data.Ethernet != nil {
+		if e := data.Ethernet.RxError; e != "" && e != "N/A" && e != "0" {
+			data.Alarms = append(data.Alarms, "Ethernet RX errors detected: "+e)
+		}
+	}
+	if v := data.VideoBandwidthUsage; v != "" && v != "good" && v != "N/A" {
+		data.Alarms = append(data.Alarms, "Video bandwidth usage: "+v)
+	}
+	for _, pd := range data.PortDetails {
+		if pd.DDM == nil {
+			continue
+		}
+		a := pd.DDM.AlarmStatus
+		if a.HighTemperature {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: High temperature alarm", pd.PortID))
+		}
+		if a.HighRxPower {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: High RX power alarm", pd.PortID))
+		}
+		if a.LowRxPower {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: Low RX power alarm", pd.PortID))
+		}
+		if a.LowTxPower {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: Low TX power alarm", pd.PortID))
+		}
+	}
 }
 
 // --- Read-only configuration endpoint structs ---

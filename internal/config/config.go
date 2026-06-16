@@ -59,6 +59,8 @@ type PollingConfig struct {
 	RetryCount           int  `mapstructure:"retry_count"`
 	ICMPEnabled          bool `mapstructure:"icmp_enabled"`
 	HistoryRetentionDays int  `mapstructure:"history_retention_days"`
+	FullEvery            int  `mapstructure:"full_every"`            // do a full (all-endpoint) poll every Nth cycle
+	MaxConcurrentPolls   int  `mapstructure:"max_concurrent_polls"`  // cap simultaneous device polls to bound bursts
 }
 
 type CORSConfig struct {
@@ -80,6 +82,8 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("polling.retry_count", 2)
 	v.SetDefault("polling.icmp_enabled", true)
 	v.SetDefault("polling.history_retention_days", 30)
+	v.SetDefault("polling.full_every", 10)
+	v.SetDefault("polling.max_concurrent_polls", 8)
 	v.SetDefault("alerting.temp_warning_c", 70)
 	v.SetDefault("alerting.temp_critical_c", 75)
 	v.SetDefault("alerting.response_warning_ms", 2000)

@@ -16,6 +16,9 @@ polling:
   retry_count: 2
   icmp_enabled: true             # independent L4 (TCP) reachability probe per Red/Blue path
   history_retention_days: 30     # poll history older than this is pruned daily (0 = keep forever)
+  full_every: 10                 # every Nth cycle does a full poll (all endpoints); others fetch only
+                                 #   dynamic health (~6 reqs vs ~17). At interval 30s, full poll ≈ every 5 min.
+  max_concurrent_polls: 8        # cap simultaneous device polls so a large fleet doesn't burst the network
 
 alerting:
   temp_warning_c: 70             # core temp (°C) that raises a warning
