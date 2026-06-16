@@ -174,6 +174,7 @@ export interface Device {
   tags: string;
   notes: string;
   monitoring_enabled: boolean;
+  slow_response_count: number;
   created_at: string;
   updated_at: string;
 

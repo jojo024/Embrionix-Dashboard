@@ -44,7 +44,7 @@ export function DevicesPage() {
     d.location.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleCreate = async (form: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data'>) => {
+  const handleCreate = async (form: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data' | 'slow_response_count'>) => {
     try {
       await createDevice.mutateAsync(form)
       setShowForm(false)

@@ -121,7 +121,7 @@ export function useDeviceSparkline(id: string) {
 export function useCreateDevice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (device: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status'>) =>
+    mutationFn: (device: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data' | 'slow_response_count'>) =>
       api.createDevice(device),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: DEVICES_KEY });
