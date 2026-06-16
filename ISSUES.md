@@ -1,21 +1,69 @@
 # Known Issues and API Limitations
 
-This file documents features that could not be implemented as desired due to emSFP API constraints, and proposes alternatives where possible.
+This file documents features that could not be implemented as desired due to emSFP API constraints, the decisions taken, and proposed alternatives.
 
 ---
 
-## Confirmed Supported
+## Confirmed Supported (polled)
 
-The following emSFP API endpoints have been verified against `documentations/api_e+.html` and are used in Phase 1:
+Verified against `documentations/api_e+.html` and collected every poll cycle.
+The full mapping lives in [API.md → EM6 endpoint coverage](API.md#em6-endpoint-coverage).
 
-| Endpoint | Method | Used for |
-|----------|--------|---------|
-| `/self/information` | GET | Firmware version, device type |
-| `/self/ipconfig` | GET | Hostname, IP, MAC, DHCP state |
-| `/self/system` | GET | Core temp, fan speed, core voltage, uptime |
-| `/telemetry/node` | GET | Health summary + PTP/refclk status |
-| `/telemetry/ports` | GET | Per-port SFP temperature, TX/RX power |
-| `/port/{id}` | GET | Full SFP DDM with alarm/warning thresholds |
+| Endpoint | Used for |
+|----------|---------|
+| `/self/information` | Firmware version, device type, platform HW |
+| `/self/ipconfig` | Hostname, IP, MAC, DHCP state |
+| `/self/system` | Core temp, fan speed, core voltage, uptime |
+| `/self/firmware` | Firmware bank slots (active/default) |
+| `/self/license` | Licensed feature map |
+| `/self/diag/refclk` | PTP lock status, offset, mean delay, sync counters |
+| `/self/diag/ethernet` | Control-plane TX/RX packet counters + RX errors |
+| `/self/diag/common` | Video bandwidth usage, watchdog, IPv4 packet drops |
+| `/self/interfaces` | Per-interface (e1/e2) IP, gateway, DHCP, VLAN |
+| `/lldp` | Discovered LLDP neighbour |
+| `/telemetry/node` | Health summary + PTP/refclk status |
+| `/telemetry/ports` | Per-port SFP temperature, TX/RX power |
+| `/telemetry/devices` | Media-flow packet counters + validity |
+| `/port/{id}` | Full SFP DDM with alarm/warning thresholds |
+| `/sdi` | SDI operating bit rate |
+
+---
+
+## Decisions
+
+### Reachability uses TCP connect, not ICMP
+**Decision:** Independent dual-path reachability (`reachable_red` / `reachable_blue`)
+is implemented with a **TCP connect** to the device management port, not a raw
+ICMP echo.
+
+**Why:** Raw ICMP echo sockets require elevated privileges — administrator on
+Windows, `CAP_NET_RAW` on Linux. The dashboard is designed to run as an
+unprivileged process (including the non-root container user). A TCP connect to
+the management port exercises the same L3 path and additionally confirms the
+port is open, without raw sockets.
+
+**Toggle:** `polling.icmp_enabled` (default `true`) gates the dual-path probe.
+The field keeps the `icmp` name for config-compatibility; the implementation is
+TCP. If true ICMP is ever required, add it behind the same flag and document the
+privilege requirement here.
+
+### Config-plane endpoints are intentionally not polled
+**Decision:** The media-routing/configuration endpoints — `/sources`,
+`/receivers`, `/senders`, `/flows`, `/sdp`, `/route`, `/clean_switch`,
+`/black_burst`, `/sdi_input`, `/sdi_audio`, `/sdi_output`, `/self/protocols`,
+`/self/syslog`, `/self/static_route`, `/self/diag/dns` — are **not** part of the
+monitoring poll.
+
+**Why:** They describe how media flows are *configured*, not device *health*.
+Polling them on every cycle adds load and surfaces configuration state the
+monitoring product does not act on. They are reserved for Phase 4 (configuration
+management), where they will be read and written on demand, not on a timer.
+
+### Best-effort polling
+Every endpoint except `/self/information` is fetched best-effort: a failure
+(e.g. the device type does not implement `/sdi`) is tolerated and does not abort
+the poll or mark the device unhealthy. Only `/self/information` must succeed for
+a device to count as reachable.
 
 ---
 
@@ -27,48 +75,33 @@ The following emSFP API endpoints have been verified against `documentations/api
 | Config reset | Destructive | Phase 4 |
 | IP reconfiguration | PUT `/self/ipconfig` causes device reboot | Phase 4 |
 | Firmware upgrade | Requires multipart upload + slot management | Phase 4 |
-| Syslog configuration | Low priority; no demand yet | Phase 4 |
-| VLAN configuration | PUT `/self/ipconfig` — covered with IP config | Phase 4 |
+| Syslog / DNS / protocols config | Config-plane writes | Phase 4 |
+| Media flow routing | `/route`, `/flows`, `/sdp` writes | Phase 4 |
 
 ---
 
-## Limitations and Workarounds
+## Open Limitations
 
 ### Authentication
-**Issue:** The emSFP API (`/emsfp/node/v1`) does not appear to require authentication based on the available documentation (`api_e+.html`). The `auth-usvc.json` file documents a separate NEP Broadcast Control authentication microservice which is unrelated to direct device access.
+The emSFP API (`/emsfp/node/v1`) does not require authentication per
+`api_e+.html`. The `auth-usvc.json` file documents a separate NEP Broadcast
+Control authentication microservice, unrelated to direct device access. If a
+deployment restricts device API access, the mechanism must be discovered against
+real hardware and implemented in `EmsfpClient`.
 
-**Impact:** No token management needed for device polling. If your environment restricts device API access, this will require investigation.
+### SFP vendor / model strings
+The API returns SFP type (`sfp_type`) but not vendor name, part number, or
+serial of the transceiver in the documented endpoints. Needs verification
+against real hardware (`/self/diag/devices`, `/port/{id}`) to confirm whether
+vendor strings are exposed.
 
-**Action:** If authentication is discovered to be required in testing, document the mechanism and implement it in the `EmsfpClient`.
+### Media-flow telemetry depth
+`/telemetry/devices` is parsed into per-device flow counts and validity. The
+underlying structure is device-type-specific (encap vs. decap vs. UDC); the
+dashboard summarises flow count and total packets rather than modelling every
+engine/essence. Deeper per-essence breakdown is a future enhancement.
 
-### ICMP Reachability
-**Issue:** Raw ICMP (ping) requires elevated OS privileges on Linux and is non-trivial on Windows without admin rights.
-
-**Workaround:** Phase 1 uses a lightweight HTTP GET to `/self/information` as the reachability check. This is more meaningful than ICMP because it confirms the device API is responding, not just that it's pingable.
-
-**Phase 2:** Evaluate `golang.org/x/net/icmp` with capability setting (`CAP_NET_RAW`) on Linux and investigate Windows alternatives.
-
-### Dual-Path Status (Red / Blue)
-**Issue:** The polling engine currently polls only the Red IP (falling back to Blue if Red is unset). Independently tracking both paths requires two concurrent polls per device.
-
-**Phase 2:** The `reachability` endpoint already supports dual-path checking on demand. Extend `PollingService` to store `reachable_red` and `reachable_blue` independently per poll cycle.
-
-### Flow Telemetry
-**Issue:** `/telemetry/devices` returns per-device/engine/flow packet counts. The data structure is device-type-specific (encapsulator vs. decapsulator) and complex.
-
-**Phase 2:** Parse flow telemetry and surface packet count trends in the Monitoring tab.
-
-### SFP Vendor / Model Information
-**Issue:** The emSFP API returns SFP type (`sfp_type`, `detected_sfp_type`) but not the vendor name, part number, or serial number of the transceiver module directly in the documented endpoints.
-
-**Action:** Investigate `/self/diag/devices` and `/port/{id}` more thoroughly against real hardware to find if vendor strings are available.
-
-### SDI Input / Output Status
-**Issue:** `/sdi_input/{id}` and `/sdi_output/{id}` endpoints for SDI signal presence and format detection are present in the API but not yet parsed.
-
-**Phase 2:** Add SDI signal presence to the Interfaces tab (relevant for encapsulator/decapsulator devices).
-
-### Historical Data Volume
-**Issue:** Polling every 30 seconds generates ~2,880 rows/day per device. With 20 devices over 90 days, that is ~5.2 million rows.
-
-**Mitigation:** SQLite WAL mode and indexed queries keep this manageable. Phase 3 will add a background pruning job with configurable retention (default 30 days).
+### Historical data volume
+Polling every 30 seconds generates ~2,880 rows/day per device. A daily pruning
+job (`polling.history_retention_days`, default 30) bounds growth; SQLite WAL mode
+and indexed queries keep queries fast within the window.

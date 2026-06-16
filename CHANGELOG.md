@@ -7,6 +7,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-16
+
+### Added
+
+**Comprehensive EM6 monitoring** — the poll now covers every health/telemetry
+endpoint on the device (see [API.md → EM6 endpoint coverage](API.md#em6-endpoint-coverage)):
+- `/self/diag/refclk` — detailed PTP status: lock state (decoded), offset from
+  master, mean delay, sync/delay-request counters, lock events
+- `/self/firmware` — firmware bank slots (slot, version, active, default)
+- `/self/license` — licensed feature map
+- `/self/diag/ethernet` — control-plane TX/RX packet counters and RX errors
+- `/self/diag/common` — video bandwidth usage, watchdog, IPv4 packet drops
+- `/self/interfaces` — per-interface (e1/e2) IP, gateway, DHCP, VLAN
+- `/lldp` — discovered neighbour (chassis, remote port, TTL)
+- `/telemetry/devices` — media-flow packet counters and validity
+- `/sdi` — SDI operating bit rate
+
+**Backend**
+- Dual-path reachability: independent L4 (TCP-connect) probe of Red and Blue
+  management IPs each poll cycle, stored on the device and every `PollResult`
+  (`reachable_red`, `reachable_blue`); gated by `polling.icmp_enabled`
+- Status engine now factors PTP lock, ethernet RX errors, and video-bandwidth
+  health into warnings, in addition to alarms and the >75 °C critical threshold
+- `PollResult` extended with `ptp_locked`, `ptp_offset`, `reachable_red/blue`
+- Fleet-wide alarm endpoint: `GET /api/v1/alarms`
+- Daily history-pruning background job (`polling.history_retention_days`, default 30)
+- Unit tests for PTP status decoding, status derivation, and fleet-alarm aggregation
+
+**Frontend**
+- Fleet-wide alarm panel on the dashboard (click-through to the device)
+- Auto-refresh countdown indicator on the dashboard
+- Device detail enriched: PTP/refclk card, system-health card, firmware banks,
+  per-interface (e1/e2) config, LLDP neighbour, control-plane ethernet counters,
+  media-flow table, SDI bit rate, and a PTP-offset trend chart
+- Dual-path reachability dots on the Overview network panel
+- Toast notifications for device create/update/delete and on-demand polls
+- Keyboard shortcut: press **N** to add a device
+- API status indicator now verifies real connectivity via `/health`
+
+**Infrastructure**
+- Code-splitting: recharts, React, and React Query are split into separate
+  vendor chunks; heavy routes are lazy-loaded (initial bundle no longer ships
+  the chart library)
+- Google Fonts moved to `index.html` (`<link>`), removing the PostCSS `@import`
+  warning; page `<title>` and meta description set
+- Vitest added with a unit test; `npm test` wired into CI
+
 ## [0.1.0] — 2026-06-16
 
 ### Added
