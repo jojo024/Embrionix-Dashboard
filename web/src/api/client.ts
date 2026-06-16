@@ -1,4 +1,4 @@
-import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig } from '../types/device';
+import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig } from '../types/device';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
 
@@ -52,6 +52,9 @@ export const api = {
 
   pollDeviceNow: (id: string): Promise<{ reachable: boolean; polling_data?: Device['polling_data'] }> =>
     request(`/api/v1/devices/${id}/poll`, { method: 'POST' }),
+
+  getDeviceConfig: (id: string): Promise<DeviceConfig> =>
+    request(`/api/v1/devices/${id}/config`),
 
   checkReachability: (id: string): Promise<Record<string, { ip: string; reachable: boolean; response_ms: number }>> =>
     request(`/api/v1/devices/${id}/reachability`),

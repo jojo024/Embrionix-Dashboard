@@ -243,6 +243,27 @@ Trigger an immediate on-demand poll of a device.
 
 **Response 503** if device is unreachable.
 
+### `GET /api/v1/devices/:id/config`
+
+Fetches the device's **read-only** configuration on demand (GET-only — never
+writes to the device). Aggregates `/self/ipconfig`, `/self/system`,
+`/self/protocols`, `/self/syslog`, `/self/static_route`, and `/self/diag/dns`.
+Each section is best-effort and omitted if the device type does not implement it.
+
+**Response 200**
+```json
+{
+  "network": { "mac_address": "40:a3:6b:a0:1f:a6", "ip_addr": "192.168.39.48", "subnet_mask": "255.255.255.0", "gateway": "192.168.39.1", "hostname": "emsfp-a0-1f-a6", "port": "80", "dhcp_enable": "1", "ctl_vlan_id": "0", "ctl_vlan_pcp": "0", "ctl_vlan_enable": "0" },
+  "system": { "staging_mode": 0, "min_fan_speed": 32, "smpte_2022_7_class": "a" },
+  "protocols": { "mdns_enable": "1", "ember_server_port": "3344", "sap_announcement_enable": "0" },
+  "syslog": { "server": "192.168.3.111", "port": 514, "enable": true, "monitoring": { "common": { "ptp_event": true } } },
+  "static_routes": [ { "name": "route_1", "destination": "192.168.39.0/24", "gateway": "192.168.4.1" } ],
+  "dns": { "server_address": "0.0.0.0", "domain_name": "" }
+}
+```
+
+**Response 503** if the device is unreachable.
+
 ### `GET /api/v1/devices/:id/reachability`
 
 Check reachability of Red and Blue management interfaces independently.

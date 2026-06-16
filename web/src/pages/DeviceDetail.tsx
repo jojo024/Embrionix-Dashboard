@@ -2,26 +2,27 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, RefreshCw, Thermometer, Wind, Cpu, Wifi, WifiOff,
-  Clock, AlertTriangle, Activity, Server, Radio, Settings2, Download
+  Clock, AlertTriangle, Activity, Server, Radio, Settings2, Download, Sliders, Lock
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts'
-import { useDevice, useDeviceHistory, usePollDevice, useAlertHistory } from '../hooks/useDevices'
+import { useDevice, useDeviceHistory, usePollDevice, useAlertHistory, useDeviceConfig } from '../hooks/useDevices'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../components/Toast'
 import { formatDate, formatRelativeTime } from '../utils/time'
 
-type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'logs'
+type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'config' | 'logs'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'Overview', icon: Server },
   { id: 'interfaces', label: 'Interfaces', icon: Radio },
   { id: 'sfp', label: 'SFP Modules', icon: Activity },
   { id: 'monitoring', label: 'Monitoring', icon: Cpu },
+  { id: 'config', label: 'Configuration', icon: Sliders },
   { id: 'logs', label: 'Logs', icon: Settings2 },
 ]
 
@@ -568,6 +569,118 @@ function LogsTab({ device }: { device: ReturnType<typeof useDevice>['data'] }) {
   )
 }
 
+function ConfigTab({ deviceId, active }: { deviceId: string; active: boolean }) {
+  const { data: config, isLoading, isError, error, refetch, isFetching } = useDeviceConfig(deviceId, active)
+
+  if (isLoading) return <div className="text-slate-500 text-sm p-4">Loading configuration…</div>
+  if (isError) {
+    return (
+      <div className="card p-4">
+        <p className="text-sm text-red-400 mb-3">Failed to read configuration: {(error as Error).message}</p>
+        <button className="btn-secondary" onClick={() => refetch()}>
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
+      </div>
+    )
+  }
+  if (!config) return <div className="text-slate-500 text-sm p-4">No configuration available.</div>
+
+  return (
+    <div className="space-y-4">
+      {/* Read-only banner */}
+      <div className="flex items-center justify-between gap-3 bg-surface-800/60 border border-surface-700 rounded-lg px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Lock className="w-3.5 h-3.5 text-slate-500" />
+          Read-only view of the device's live configuration. Editing arrives in a later phase.
+        </div>
+        <button className="btn-ghost p-1.5" onClick={() => refetch()} disabled={isFetching} title="Refresh">
+          <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
+        </button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        {/* Network */}
+        {config.network && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Network (ipconfig)</h3>
+            <InfoRow label="MAC Address" value={config.network.mac_address} mono />
+            <InfoRow label="IP Address" value={config.network.ip_addr} mono />
+            <InfoRow label="Subnet Mask" value={config.network.subnet_mask} mono />
+            <InfoRow label="Gateway" value={config.network.gateway} mono />
+            <InfoRow label="Hostname" value={config.network.hostname} mono />
+            <InfoRow label="HTTP Port" value={config.network.port} mono />
+            <InfoRow label="DHCP" value={config.network.dhcp_enable === '1' ? 'Enabled' : 'Disabled'} />
+            <InfoRow label="Control VLAN" value={config.network.ctl_vlan_enable === '1' ? `${config.network.ctl_vlan_id} (pcp ${config.network.ctl_vlan_pcp})` : 'Disabled'} mono />
+          </div>
+        )}
+
+        {/* System */}
+        {config.system && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">System</h3>
+            <InfoRow label="Staging Mode" value={config.system.staging_mode ? 'On' : 'Off'} />
+            <InfoRow label="Min Fan Speed" value={`${config.system.min_fan_speed}%`} />
+            <InfoRow label="ST 2022-7 Class" value={config.system.smpte_2022_7_class ? config.system.smpte_2022_7_class.toUpperCase() : undefined} />
+          </div>
+        )}
+
+        {/* Protocols */}
+        {config.protocols && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Protocols</h3>
+            <InfoRow label="mDNS" value={config.protocols.mdns_enable === '1' ? 'Enabled' : 'Disabled'} />
+            <InfoRow label="Ember+ Port" value={config.protocols.ember_server_port} mono />
+            <InfoRow label="SAP Announce" value={config.protocols.sap_announcement_enable === '1' ? 'Enabled' : 'Disabled'} />
+          </div>
+        )}
+
+        {/* DNS */}
+        {config.dns && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">DNS</h3>
+            <InfoRow label="Server" value={config.dns.server_address} mono />
+            <InfoRow label="Domain" value={config.dns.domain_name || '—'} mono />
+          </div>
+        )}
+
+        {/* Syslog */}
+        {config.syslog && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Syslog</h3>
+            <InfoRow label="Status" value={config.syslog.enable ? 'Enabled' : 'Disabled'} />
+            <InfoRow label="Server" value={config.syslog.server} mono />
+            <InfoRow label="Port" value={config.syslog.port} mono />
+            {config.syslog.monitoring && (
+              <div className="pt-2 space-y-1">
+                {Object.entries(config.syslog.monitoring).map(([group, events]) => {
+                  const on = Object.entries(events).filter(([, v]) => v).map(([k]) => k)
+                  if (on.length === 0) return null
+                  return (
+                    <div key={group} className="text-xs">
+                      <span className="text-slate-500">{group}: </span>
+                      <span className="text-slate-400 font-mono">{on.join(', ')}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Static routes */}
+        {config.static_routes && config.static_routes.length > 0 && (
+          <div className="card p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Static Routes</h3>
+            {config.static_routes.map(r => (
+              <InfoRow key={r.name} label={r.destination} value={`→ ${r.gateway}`} mono />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function DeviceDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -670,6 +783,7 @@ export function DeviceDetail() {
         {activeTab === 'interfaces'  && <InterfacesTab device={device} />}
         {activeTab === 'sfp'         && <SFPTab device={device} />}
         {activeTab === 'monitoring'  && <MonitoringTab deviceId={id!} />}
+        {activeTab === 'config'      && <ConfigTab deviceId={id!} active={activeTab === 'config'} />}
         {activeTab === 'logs'        && <LogsTab device={device} />}
       </div>
     </div>
