@@ -22,6 +22,11 @@ type EmsfpClient struct {
 	baseURL    string
 }
 
+// DeviceInfo holds basic identifying info fetched from a device.
+type DeviceInfo struct {
+	CurrentVersion string
+}
+
 func NewEmsfpClient(ip string, port string, timeoutSec int) *EmsfpClient {
 	if port == "" || port == "80" {
 		port = "80"
@@ -47,6 +52,17 @@ func NewEmsfpClient(ip string, port string, timeoutSec int) *EmsfpClient {
 			},
 		},
 	}
+}
+
+// FetchInfo quickly fetches the device's current firmware version.
+func (c *EmsfpClient) FetchInfo(ctx context.Context) (*DeviceInfo, error) {
+	var info selfInformation
+	if err := c.get(ctx, "/self/information", &info); err != nil {
+		return nil, err
+	}
+	return &DeviceInfo{
+		CurrentVersion: info.CurrentVersion,
+	}, nil
 }
 
 func (c *EmsfpClient) get(ctx context.Context, path string, out interface{}) error {
