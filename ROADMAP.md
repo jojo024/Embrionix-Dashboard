@@ -70,12 +70,15 @@
 - [x] View DNS (`/self/diag/dns`)
 - [x] Configuration tab on device detail (on-demand fetch, read-only)
 
-### Phase 4b — Writes (for initial device setup)
-- [ ] Change management IP (static / DHCP toggle) with confirmation dialog
-- [ ] VLAN configuration (`ctl_vlan_id`, `ctl_vlan_pcp`, `ctl_vlan_enable`)
-- [ ] Syslog server configuration write (`/self/syslog`)
-- [ ] Device reboot action with confirmation dialog
-- [ ] Application config reset action
+### Phase 4b — Writes (for initial device setup) ✅
+- [x] Change management IP (static / DHCP toggle) with confirmation dialog
+- [x] VLAN configuration (`ctl_vlan_id`, `ctl_vlan_pcp`, `ctl_vlan_enable`)
+- [x] Protocols write (mDNS, Ember+, SAP)
+- [x] Syslog server configuration write (`/self/syslog`)
+- [x] Static routes write (`/self/static_route`)
+- [x] Device reboot action with confirmation dialog
+- [x] Config reset actions (flows / application / generic / system)
+- [x] Audit log of all configuration writes and actions
 - [ ] Configuration backup — export device config via API snapshot
 - [ ] Configuration restore — push saved config back to device
 - [ ] Database backup/restore (export/import SQLite file)

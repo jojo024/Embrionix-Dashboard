@@ -301,6 +301,45 @@ export interface DeviceConfig {
   dns?: DNSConfig;
 }
 
+// --- Phase 4b write payloads ---
+
+export interface NetworkUpdate {
+  ip_addr: string;
+  subnet_mask: string;
+  gateway: string;
+  hostname: string;
+  port: string;
+  dhcp_enable: string;
+  ctl_vlan_id: string;
+  ctl_vlan_pcp: string;
+  ctl_vlan_enable: string;
+}
+
+export interface SyslogUpdate {
+  server: string;
+  port: number;
+  enable: boolean;
+  monitoring?: Record<string, Record<string, boolean>>;
+}
+
+export type ConfigResetScope = 'flows' | 'application' | 'generic' | 'system';
+
+export interface AuditEvent {
+  id: number;
+  device_id: string;
+  device_name: string;
+  action: string;
+  detail: string;
+  success: boolean;
+  message: string;
+  created_at: string;
+}
+
+export interface AuditLogResponse {
+  events: AuditEvent[];
+  total: number;
+}
+
 export interface RuntimeConfig {
   polling: {
     interval_seconds: number;
