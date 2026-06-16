@@ -249,6 +249,58 @@ export interface AlertHistoryResponse {
   total: number;
 }
 
+export interface NetworkConfig {
+  mac_address: string;
+  ip_addr: string;
+  subnet_mask: string;
+  gateway: string;
+  hostname: string;
+  port: string;
+  dhcp_enable: string;
+  ctl_vlan_id: string;
+  ctl_vlan_pcp: string;
+  ctl_vlan_enable: string;
+}
+
+export interface SystemConfig {
+  staging_mode: number;
+  min_fan_speed: number;
+  smpte_2022_7_class: string;
+}
+
+export interface ProtocolsConfig {
+  mdns_enable: string;
+  ember_server_port: string;
+  sap_announcement_enable: string;
+}
+
+export interface SyslogConfig {
+  server: string;
+  port: number;
+  enable: boolean;
+  monitoring?: Record<string, Record<string, boolean>>;
+}
+
+export interface StaticRoute {
+  name: string;
+  destination: string;
+  gateway: string;
+}
+
+export interface DNSConfig {
+  server_address: string;
+  domain_name: string;
+}
+
+export interface DeviceConfig {
+  network?: NetworkConfig;
+  system?: SystemConfig;
+  protocols?: ProtocolsConfig;
+  syslog?: SyslogConfig;
+  static_routes?: StaticRoute[];
+  dns?: DNSConfig;
+}
+
 export interface RuntimeConfig {
   polling: {
     interval_seconds: number;

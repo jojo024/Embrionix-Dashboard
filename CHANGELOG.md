@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — Phase 4a (read-only configuration)
+- `GET /api/v1/devices/:id/config` — on-demand, **read-only** aggregation of the
+  device's configuration: network (`/self/ipconfig`), system (`/self/system`),
+  protocols (`/self/protocols`), syslog (`/self/syslog`), static routes
+  (`/self/static_route`), and DNS (`/self/diag/dns`). GET-only — no device writes.
+- New **Configuration** tab on the device detail page rendering all sections
+  read-only, fetched on demand (no background refetch), with a manual refresh
+  and a "read-only / editing later" banner.
+- `EmsfpClient.FetchConfig` (best-effort per endpoint) + `asString` helper, with
+  a unit test.
+
 ## [0.3.0] — 2026-06-16
 
 ### Added
