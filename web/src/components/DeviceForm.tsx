@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader } from 'lucide-react'
 import type { Device } from '../types/device'
 
-type FormData = Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data'>
+type FormData = Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data' | 'slow_response_count'>
 
 const EMPTY: FormData = {
   name: '',
