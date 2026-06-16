@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge';
 import { Sparkline } from './Sparkline';
 import { useDeviceSparkline } from '../hooks/useDevices';
 import { formatRelativeTime } from '../utils/time';
+import { powerTodBm } from '../utils/optics';
 
 interface Props {
   device: Device;
@@ -146,19 +147,24 @@ export function DeviceCard({ device }: Props) {
           )}
         </div>
 
-        {/* SFP ports row */}
-        {pd?.ports && pd.ports.length > 0 && (
-          <div className="grid grid-cols-2 gap-1.5">
-            {pd.ports.slice(0, 2).map((p) => (
-              <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
-                <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-blue-400">TX {p.tx_power}</span>
-                  <span className="text-green-400">RX {p.rx_power}</span>
-                </div>
+        {/* SFP light levels — ports 3 & 5 only */}
+        {pd?.ports && (
+          (() => {
+            const relevantPorts = pd.ports.filter(p => p.port === 3 || p.port === 5)
+            return relevantPorts.length > 0 ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {relevantPorts.map((p) => (
+                  <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
+                    <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
+                    <div className="space-y-0.5 text-xs font-mono">
+                      <div className="text-blue-400">TX {powerTodBm(p.tx_power)}</div>
+                      <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : null
+          })()
         )}
       </div>
 
