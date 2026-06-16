@@ -14,6 +14,7 @@ import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
 import { DeviceConfigTab } from '../components/DeviceConfigTab'
 import { useToast } from '../components/Toast'
+import { useAuth } from '../contexts/AuthContext'
 import { formatDate, formatRelativeTime } from '../utils/time'
 
 type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'config' | 'logs'
@@ -602,6 +603,7 @@ export function DeviceDetail() {
   const { data: device, isLoading, refetch, isFetching } = useDevice(id!)
   const pollNow = usePollDevice()
   const { notify } = useToast()
+  const { canWrite } = useAuth()
 
   const handlePollNow = () => {
     pollNow.mutate(id!, {
@@ -654,14 +656,16 @@ export function DeviceDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            className="btn-secondary"
-            onClick={handlePollNow}
-            disabled={pollNow.isPending}
-          >
-            <RefreshCw className={clsx('w-4 h-4', pollNow.isPending && 'animate-spin')} />
-            Poll Now
-          </button>
+          {canWrite && (
+            <button
+              className="btn-secondary"
+              onClick={handlePollNow}
+              disabled={pollNow.isPending}
+            >
+              <RefreshCw className={clsx('w-4 h-4', pollNow.isPending && 'animate-spin')} />
+              Poll Now
+            </button>
+          )}
           <button
             className="btn-ghost"
             onClick={() => refetch()}

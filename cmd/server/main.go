@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,6 +20,55 @@ import (
 	"github.com/embrionix/dashboard/pkg/logger"
 	"go.uber.org/zap"
 )
+
+// seedAdmin creates the initial admin account the first time auth is enabled
+// (when no users exist). The password comes from config; if unset, a random one
+// is generated and logged once so the operator can capture it.
+func seedAdmin(userRepo *repositories.UserRepository, authCfg config.AuthConfig) error {
+	n, err := userRepo.Count()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+
+	password := authCfg.AdminPassword
+	generated := false
+	if password == "" {
+		buf := make([]byte, 12)
+		if _, err := rand.Read(buf); err != nil {
+			return err
+		}
+		password = hex.EncodeToString(buf)
+		generated = true
+	}
+
+	hash, err := services.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	user := &models.User{
+		Username:     authCfg.AdminUsername,
+		PasswordHash: hash,
+		Role:         models.RoleAdmin,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	if err := userRepo.Create(user); err != nil {
+		return err
+	}
+
+	if generated {
+		logger.Warn("seeded initial admin user with a GENERATED password — change it after first login",
+			zap.String("username", authCfg.AdminUsername),
+			zap.String("password", password),
+		)
+	} else {
+		logger.Info("seeded initial admin user from config", zap.String("username", authCfg.AdminUsername))
+	}
+	return nil
+}
 
 func main() {
 	cfgPath := "configs/config.yaml"
@@ -42,20 +93,31 @@ func main() {
 	}
 
 	// Auto-migrate models
-	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}, &models.AlertEvent{}, &models.AuditEvent{}); err != nil {
+	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}, &models.AlertEvent{}, &models.AuditEvent{}, &models.User{}); err != nil {
 		logger.Fatal("failed to migrate database", zap.Error(err))
 	}
 
 	deviceRepo := repositories.NewDeviceRepository(db)
 	pollRepo := repositories.NewPollRepository(db)
+	userRepo := repositories.NewUserRepository(db)
 	deviceSvc := services.NewDeviceService(deviceRepo)
 	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling, cfg.Alerting)
+	authSvc := services.NewAuthService(userRepo, cfg.Auth)
+
+	if cfg.Auth.Enabled {
+		if cfg.Auth.JWTSecret == "" {
+			logger.Fatal("auth.enabled is true but auth.jwt_secret is empty — set EMB_AUTH_JWT_SECRET or configs/config.yaml")
+		}
+		if err := seedAdmin(userRepo, cfg.Auth); err != nil {
+			logger.Fatal("failed to seed admin user", zap.Error(err))
+		}
+	}
 
 	pollingSvc.Start()
 	pollingSvc.StartPruning()
 	defer pollingSvc.Stop()
 
-	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo)
+	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo, authSvc, userRepo)
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Address(),

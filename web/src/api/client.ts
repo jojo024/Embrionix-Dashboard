@@ -1,14 +1,39 @@
-import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig, NetworkUpdate, SyslogUpdate, ProtocolsConfig, StaticRoute, ConfigResetScope, AuditLogResponse, AuditEvent } from '../types/device';
+import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig, NetworkUpdate, SyslogUpdate, ProtocolsConfig, StaticRoute, ConfigResetScope, AuditLogResponse, AuditEvent, AuthMe, LoginResponse, User, Role } from '../types/device';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
 
 export const API_BASE = BASE;
 
+const TOKEN_KEY = 'emb_token';
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+export function setAuthToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+// Raised on a 401 so the auth layer can redirect to login.
+export class UnauthorizedError extends Error {}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
     ...init,
   });
+  if (res.status === 401) {
+    clearAuthToken();
+    window.dispatchEvent(new Event('emb:unauthorized'));
+    throw new UnauthorizedError('authentication required');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error ?? `HTTP ${res.status}`);
@@ -101,6 +126,25 @@ export const api = {
 
   setSetting: (key: string, value: string): Promise<{ key: string; value: string }> =>
     request(`/api/v1/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
+
+  // ---- Auth & users (Phase 5) ----
+  login: (username: string, password: string): Promise<LoginResponse> =>
+    request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+
+  getMe: (): Promise<AuthMe> =>
+    request('/api/v1/auth/me'),
+
+  listUsers: (): Promise<{ users: User[]; total: number }> =>
+    request('/api/v1/users'),
+
+  createUser: (username: string, password: string, role: Role): Promise<User> =>
+    request('/api/v1/users', { method: 'POST', body: JSON.stringify({ username, password, role }) }),
+
+  updateUser: (id: number, body: { role?: Role; password?: string }): Promise<User> =>
+    request(`/api/v1/users/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  deleteUser: (id: number): Promise<void> =>
+    request(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
   // ---- Health ----
   health: (): Promise<{ status: string; uptime: string }> =>

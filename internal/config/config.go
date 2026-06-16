@@ -13,7 +13,20 @@ type Config struct {
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Polling  PollingConfig  `mapstructure:"polling"`
 	Alerting AlertingConfig `mapstructure:"alerting"`
+	Auth     AuthConfig     `mapstructure:"auth"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+}
+
+// AuthConfig controls authentication and RBAC. Disabled by default so an
+// existing deployment keeps working without any login; enabling it requires a
+// jwt_secret and seeds an admin account on first start.
+type AuthConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	JWTSecret     string `mapstructure:"jwt_secret"`
+	TokenTTLHours int    `mapstructure:"token_ttl_hours"`
+	AdminUsername string `mapstructure:"admin_username"`
+	AdminPassword string `mapstructure:"admin_password"`
+	APIKey        string `mapstructure:"api_key"` // optional static key for integrations (admin-equivalent)
 }
 
 // AlertingConfig holds tunable health thresholds and notification settings.
@@ -72,6 +85,10 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("alerting.response_warning_ms", 2000)
 	v.SetDefault("alerting.webhook_url", "")
 	v.SetDefault("alerting.webhook_on", []string{"critical", "offline"})
+	v.SetDefault("auth.enabled", false)
+	v.SetDefault("auth.token_ttl_hours", 12)
+	v.SetDefault("auth.admin_username", "admin")
+	v.SetDefault("auth.admin_password", "")
 	v.SetDefault("cors.allowed_origins", []string{"http://localhost:5173"})
 
 	v.SetEnvPrefix("EMB")
