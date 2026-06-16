@@ -1,0 +1,101 @@
+# Roadmap
+
+## Phase 1 — Foundation ✅ (current)
+
+**Goal:** Working skeleton that lets operators manage a device inventory and see live health at a glance.
+
+- [x] Project structure (Go clean architecture + React/Vite)
+- [x] SQLite database with GORM (device inventory, poll history, settings)
+- [x] Device CRUD — add, edit, delete, search, disable monitoring
+- [x] Background polling engine — concurrent per-device, configurable interval
+- [x] emSFP API client — `self/information`, `self/system`, `telemetry/node`, `telemetry/ports`, `port/{id}` DDM
+- [x] REST API (Gin) with CORS, request logging, health endpoint
+- [x] Dashboard — card + table views, status colour-coding
+- [x] Device detail — Overview, Interfaces, SFP, Monitoring charts, Logs tabs
+- [x] Monitoring page — fleet-wide table sorted by severity
+- [x] Settings — polling config, device management, about
+- [x] GitHub Actions — build/test CI, multi-platform release workflow
+- [x] Docker support — Dockerfile + docker-compose.yml
+- [x] Documentation — README, ARCHITECTURE, API, CONTRIBUTING, etc.
+
+---
+
+## Phase 2 — Monitoring
+
+**Goal:** Rich, reliable monitoring with actionable alarm visibility.
+
+- [ ] ICMP ping reachability check per device (separate from API poll)
+- [ ] Dual-path reachability (Red + Blue independently tracked)
+- [ ] Alarm deduplication — don't store the same alarm twice
+- [ ] Alarm history table in device Logs tab
+- [ ] Fleet-wide alarm panel on Dashboard
+- [ ] Optical thresholds from SFP DDM — highlight values vs. alarm/warn limits
+- [ ] `self/diag/ethernet` stats — TX/RX packet counters, error rates
+- [ ] LLDP neighbour info (`/lldp`) surfaced on Interfaces tab
+- [ ] PTP/refclk status prominently displayed per device
+- [ ] Auto-refresh indicator (countdown to next poll)
+- [ ] Device uptime tracking and alerting on unexpected reboots
+
+---
+
+## Phase 3 — Advanced Monitoring
+
+**Goal:** Historical trends and configurable alerting.
+
+- [ ] Extended retention settings (configurable days to keep poll history)
+- [ ] History pruning background job
+- [ ] Dashboard trend sparklines per device card
+- [ ] Recharts zoom/pan on monitoring charts
+- [ ] Export chart data as CSV
+- [ ] Email alerting when device transitions to critical/offline
+- [ ] Webhook notifications (Slack, Teams, generic)
+- [ ] Alert rules engine — configurable thresholds per device/fleet
+- [ ] SFP optical power trend and degradation detection
+- [ ] Fleet temperature heatmap
+
+---
+
+## Phase 4 — Configuration Management
+
+**Goal:** Read and write device configuration safely through the dashboard.
+
+- [ ] View full device IP configuration (`/self/ipconfig`)
+- [ ] Change management IP (static / DHCP toggle) with confirmation dialog
+- [ ] VLAN configuration (`ctl_vlan_id`, `ctl_vlan_pcp`, `ctl_vlan_enable`)
+- [ ] Syslog server configuration (`/self/syslog`)
+- [ ] Device reboot action with confirmation dialog
+- [ ] Application config reset action
+- [ ] Firmware slot management (`/self/firmware`) — view active/default slots
+- [ ] Configuration backup — export device config via API snapshot
+- [ ] Configuration restore — push saved config back to device
+- [ ] Database backup/restore (export/import SQLite file)
+- [ ] Bulk configuration — apply settings to multiple devices at once
+
+---
+
+## Phase 5 — Enterprise Features
+
+**Goal:** Multi-user, auditable, and notification-ready.
+
+- [ ] Local user accounts with hashed passwords (bcrypt)
+- [ ] JWT authentication for the REST API
+- [ ] Role-based access control — Viewer / Operator / Admin roles
+- [ ] Audit log — all configuration changes recorded with user + timestamp
+- [ ] Multi-user concurrency (upgrade to PostgreSQL option)
+- [ ] LDAP / Active Directory authentication
+- [ ] Session management and token refresh
+- [ ] API key support for external integrations
+- [ ] Read-only public dashboard mode
+- [ ] Scheduled reports (daily/weekly PDF summary)
+
+---
+
+## Backlog / Ideas
+
+- NMS integration — SNMP trap receiver / forwarder
+- Ansible inventory export (compatible with `ansible-embrionix`)
+- Dark/light theme toggle
+- Keyboard shortcuts for power users
+- Mobile-optimised layout
+- Automated SFP vendor/model lookup from serial number
+- Embrionix firmware upgrade workflow

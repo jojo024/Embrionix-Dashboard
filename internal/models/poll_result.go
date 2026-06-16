@@ -1,0 +1,38 @@
+package models
+
+import (
+	"time"
+)
+
+// PollResult stores historical polling data for a device.
+type PollResult struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	DeviceID    string    `gorm:"index;not null" json:"device_id"`
+	PolledAt    time.Time `gorm:"index" json:"polled_at"`
+	Reachable   bool      `json:"reachable"`
+	ResponseMs  int64     `json:"response_ms"`
+
+	// Snapshot of key metrics
+	CoreTemp    *float64 `json:"core_temp"`
+	FanSpeed    *int     `json:"fan_speed"`
+	CoreVoltage *int     `json:"core_voltage"`
+
+	// Port 0 SFP (primary)
+	Port0TxPower *int     `json:"port0_tx_power"`
+	Port0RxPower *int     `json:"port0_rx_power"`
+	Port0Temp    *float64 `json:"port0_temp"`
+
+	// Port 1 SFP (secondary)
+	Port1TxPower *int     `json:"port1_tx_power"`
+	Port1RxPower *int     `json:"port1_rx_power"`
+	Port1Temp    *float64 `json:"port1_temp"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// AppSetting stores key/value application configuration.
+type AppSetting struct {
+	Key       string    `gorm:"primaryKey;type:text" json:"key"`
+	Value     string    `gorm:"type:text" json:"value"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

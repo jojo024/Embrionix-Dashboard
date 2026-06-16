@@ -1,0 +1,33 @@
+# ── Go ────────────────────────────────────────────────────────────────────────
+/embrionix-dashboard
+/embrionix-dashboard.exe
+/dist/
+*.test
+*.out
+coverage.out
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+web/node_modules/
+web/dist/
+web/.env.local
+web/.env.*.local
+
+# ── Runtime data ──────────────────────────────────────────────────────────────
+/data/
+/logs/
+*.db
+*.db-shm
+*.db-wal
+
+# ── Config overrides ─────────────────────────────────────────────────────────
+configs/config.local.yaml
+.env
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
