@@ -36,6 +36,7 @@ func NewRouter(
 	settingsHandler := handlers.NewSettingsHandler(pollRepo)
 	configHandler := handlers.NewConfigHandler(cfg)
 	configWriteHandler := handlers.NewConfigWriteHandler(deviceSvc, pollRepo, cfg.Polling.TimeoutSeconds)
+	backupHandler := handlers.NewBackupHandler(deviceSvc, pollRepo, configWriteHandler, cfg.Polling.TimeoutSeconds)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -61,6 +62,12 @@ func NewRouter(
 		v1.POST("/devices/:id/reboot", configWriteHandler.Reboot)
 		v1.POST("/devices/:id/config-reset", configWriteHandler.ConfigReset)
 		v1.GET("/audit", configWriteHandler.GetAuditLog)
+
+		// Backup / restore / bulk (Phase 4c)
+		v1.GET("/devices/:id/config/export", backupHandler.ExportDeviceConfig)
+		v1.POST("/devices/:id/config/import", backupHandler.ImportDeviceConfig)
+		v1.GET("/backup", backupHandler.BackupDatabase)
+		v1.POST("/bulk/config", backupHandler.BulkConfig)
 
 		// Dashboard summary + fleet-wide alarms + alert history
 		v1.GET("/summary", deviceHandler.GetDeviceSummary)

@@ -79,10 +79,11 @@
 - [x] Device reboot action with confirmation dialog
 - [x] Config reset actions (flows / application / generic / system)
 - [x] Audit log of all configuration writes and actions
-- [ ] Configuration backup — export device config via API snapshot
-- [ ] Configuration restore — push saved config back to device
-- [ ] Database backup/restore (export/import SQLite file)
-- [ ] Bulk configuration — apply settings to multiple devices at once
+- [x] Configuration backup — export device config as a JSON snapshot
+- [x] Configuration restore — push a saved snapshot back to the device
+- [x] Database backup — consistent SQLite snapshot (`VACUUM INTO`) download
+- [x] Bulk configuration — apply syslog/protocols to multiple devices at once
+- [ ] Database in-place restore (intentionally manual: stop server, swap file)
 
 ---
 
