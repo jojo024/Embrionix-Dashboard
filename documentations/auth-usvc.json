@@ -1,0 +1,2641 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Auth uSVC",
+        "description": "NEP Broadcast Control Authentication microservice",
+        "version": "v3.6.3"
+    },
+    "paths": {
+        "/v1/api/login_check": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login with username and password",
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/login_check_body"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "When logged in successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/login_token"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/login_unauthorized"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/api/users/current": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Get current User",
+                "operationId": "get_user_show_current",
+                "parameters": [
+                    {
+                        "name": "X-User_Id",
+                        "in": "header",
+                        "description": "The ID of the current user (is set in api gateway).",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Edit current User",
+                "operationId": "patch_users_edit_current",
+                "parameters": [
+                    {
+                        "name": "X-User_Id",
+                        "in": "header",
+                        "description": "The ID of the current user (is set in api gateway).",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserFormType"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "When updated successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/auth/openidenv": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get OpenID Connect configuration",
+                "operationId": "get_openidenv",
+                "responses": {
+                    "200": {
+                        "description": "List of supported OpenID Connect providers, with its configuration",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "description": "The property name is the name of the provider.",
+                                        "properties": {
+                                            "domain": {
+                                                "type": "string",
+                                                "example": "https://auth-provider.com/oauth2/v1/token"
+                                            },
+                                            "redirect_url": {
+                                                "type": "string",
+                                                "example": "https://control.my-tfc.com"
+                                            },
+                                            "client_id": {
+                                                "type": "string",
+                                                "example": "0oabygpxgk9lXaMgF0h7"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/openidcheck": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login with OpenID Connect",
+                "operationId": "post_openidcheck",
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OpenIdConnectParametersFormType"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "When logged in successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token": {
+                                            "$ref": "#/components/schemas/jwt_token"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "When the User has no permission or does not exist.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/login_unauthorized"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/roles": {
+            "get": {
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Get Roles",
+                "operationId": "get_roles_list",
+                "parameters": [
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "PositiveOrZero",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Positive",
+                            "default": 30
+                        }
+                    },
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "name",
+                            "enum": [
+                                "id",
+                                "name",
+                                "created_at",
+                                "updated_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order_direction",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "asc",
+                            "enum": [
+                                "desc",
+                                "asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "quick_search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "default": null
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns all Roles.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Role"
+                                            }
+                                        },
+                                        "total_results": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/roles/{id}": {
+            "get": {
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Get Role",
+                "operationId": "get_role_show",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the Role.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Role"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/roles/{roleId}/rolescopes": {
+            "get": {
+                "tags": [
+                    "Role Scopes"
+                ],
+                "summary": "Get RoleScopes",
+                "operationId": "get_role_scopes_list",
+                "parameters": [
+                    {
+                        "name": "roleId",
+                        "in": "path",
+                        "description": "ID of the Role.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "PositiveOrZero",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Positive",
+                            "default": 30
+                        }
+                    },
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": null,
+                            "enum": [
+                                "id",
+                                "created_at",
+                                "updated_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order_direction",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "asc",
+                            "enum": [
+                                "desc",
+                                "asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "quick_search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "default": null
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns all RoleScopes.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/RoleScope"
+                                            }
+                                        },
+                                        "total_results": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/roles/{roleId}/rolescopes/{id}": {
+            "get": {
+                "tags": [
+                    "Role Scopes"
+                ],
+                "summary": "Get RoleScope",
+                "operationId": "get_role_scope_show",
+                "parameters": [
+                    {
+                        "name": "roleId",
+                        "in": "path",
+                        "description": "ID of the Role.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the RoleScope.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoleScope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/scopes": {
+            "get": {
+                "tags": [
+                    "Scopes"
+                ],
+                "summary": "Get Scopes",
+                "operationId": "get_scopes_list",
+                "parameters": [
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "PositiveOrZero",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Positive",
+                            "default": 30
+                        }
+                    },
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "name",
+                            "enum": [
+                                "id",
+                                "name",
+                                "created_at",
+                                "updated_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order_direction",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "asc",
+                            "enum": [
+                                "desc",
+                                "asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "quick_search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "default": null
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns all Scopes.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Scope"
+                                            }
+                                        },
+                                        "total_results": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/scopes/{id}": {
+            "get": {
+                "tags": [
+                    "Scopes"
+                ],
+                "summary": "Get Scope",
+                "operationId": "get_scope_show",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the Scope.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Scope"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/ssogroups": {
+            "get": {
+                "tags": [
+                    "SsoGroup"
+                ],
+                "summary": "Get SsoGroups",
+                "operationId": "get_sso_group_list",
+                "parameters": [
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "PositiveOrZero",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Positive",
+                            "default": 30
+                        }
+                    },
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "name",
+                            "enum": [
+                                "id",
+                                "name",
+                                "created_at",
+                                "updated_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order_direction",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "asc",
+                            "enum": [
+                                "desc",
+                                "asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "quick_search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "default": null
+                        }
+                    },
+                    {
+                        "name": "role_id",
+                        "in": "query",
+                        "description": "Filter results on a Role ID.",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Uuid",
+                            "default": null
+                        }
+                    },
+                    {
+                        "name": "production_id",
+                        "in": "query",
+                        "description": "Filter results on a Production ID.",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Uuid",
+                            "default": null
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns all SsoGroups.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/SsoGroup"
+                                            }
+                                        },
+                                        "total_results": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "SsoGroup"
+                ],
+                "summary": "Create SsoGroup",
+                "operationId": "post_sso_group_create",
+                "requestBody": {
+                    "description": "data",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SsoGroupFormType"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "When added successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SsoGroup"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/ssogroups/{id}": {
+            "get": {
+                "tags": [
+                    "SsoGroup"
+                ],
+                "summary": "Get SsoGroup",
+                "operationId": "get_sso_group_show",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the SsoGroup.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SsoGroup"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity cannot be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "SsoGroup"
+                ],
+                "summary": "Delete SsoGroup",
+                "operationId": "delete_sso_group_delete",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the SsoGroup.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content."
+                    },
+                    "404": {
+                        "description": "When the entity cannot be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "SsoGroup"
+                ],
+                "summary": "Edit SsoGroup",
+                "operationId": "patch_sso_group_edit",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the SsoGroup.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SsoGroupFormType2"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "When updated successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SsoGroup"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/switch-production": {
+            "post": {
+                "tags": [
+                    "SwitchProduction"
+                ],
+                "summary": "Switch Production",
+                "description": "Switches the current production of the JWT token to another production that the user has access to, and generates a new token",
+                "operationId": "post_post_switch_production",
+                "parameters": [
+                    {
+                        "name": "X-User_Id",
+                        "in": "header",
+                        "description": "The ID of the current user (is set in api gateway).",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "production_id": {
+                                        "$ref": "#/components/schemas/uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "When token was regenerated.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token": {
+                                            "$ref": "#/components/schemas/jwt_token"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/auth/tokenreference": {
+            "post": {
+                "tags": [
+                    "TokenReference"
+                ],
+                "summary": "Get token reference",
+                "description": "Stores the JWT token from the header in the cache and returns a UUID reference to retrieve the content",
+                "operationId": "post_app_tokenreference_gettokenreference",
+                "parameters": [
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "Authorization header (JWT token).",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/jwt_token"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "When token reference was created.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token_reference": {
+                                            "$ref": "#/components/schemas/uuid"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "When Authorization is missing or due to an unexpected issue.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/internal/auth/tokenreference/{tokenReference}": {
+            "get": {
+                "tags": [
+                    "TokenReference"
+                ],
+                "summary": "[INTERNAL] Get token content",
+                "operationId": "get_app_tokenreference_gettokencontentbyreference",
+                "parameters": [
+                    {
+                        "name": "tokenReference",
+                        "in": "path",
+                        "description": "The reference to the cached token.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "content": {
+                                            "$ref": "#/components/schemas/decoded_jwt_token"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v2/internal/auth/tokenreference/{tokenReference}": {
+            "get": {
+                "tags": [
+                    "TokenReference"
+                ],
+                "summary": "[INTERNAL] Get encoded and decoded token content",
+                "operationId": "get_app_tokenreference_getencodeddecodedtokencontentbyreference",
+                "parameters": [
+                    {
+                        "name": "tokenReference",
+                        "in": "path",
+                        "description": "The reference to the cached token.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "encoded": {
+                                            "$ref": "#/components/schemas/jwt_token"
+                                        },
+                                        "decoded": {
+                                            "$ref": "#/components/schemas/decoded_jwt_token"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/users": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Get Users",
+                "operationId": "get_users_list",
+                "parameters": [
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "PositiveOrZero",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Positive",
+                            "default": 30
+                        }
+                    },
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "name",
+                            "enum": [
+                                "id",
+                                "name",
+                                "created_at",
+                                "updated_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "order_direction",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": "asc",
+                            "enum": [
+                                "desc",
+                                "asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "quick_search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "default": null
+                        }
+                    },
+                    {
+                        "name": "production_id",
+                        "in": "query",
+                        "description": "Filter to filter results on a Production ID.",
+                        "required": false,
+                        "allowEmptyValue": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "Uuid",
+                            "default": null
+                        }
+                    },
+                    {
+                        "name": "output",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "allowEmptyValue": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "Choice",
+                            "default": null,
+                            "enum": [
+                                "minimal"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns all Users.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/User"
+                                            }
+                                        },
+                                        "total_results": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Create User",
+                "operationId": "post_register",
+                "parameters": [
+                    {
+                        "name": "X-User_Id",
+                        "in": "header",
+                        "description": "The ID of the current user (is set in api gateway).",
+                        "required": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "data",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserFormType2"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "When added successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/v1/api/users/{id}": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Get User",
+                "operationId": "get_user_show",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the User.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Delete User",
+                "operationId": "delete_delete_user",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the User.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content."
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Edit User",
+                "operationId": "patch_users_edit",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the User.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    },
+                    {
+                        "name": "X-User_Id",
+                        "in": "header",
+                        "description": "The ID of the current user (is set in api gateway).",
+                        "schema": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "data",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserFormType3"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "When updated successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "When the request is invalid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/violations"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "When the entity can not be found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/not_found"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "login_token": {
+                "properties": {
+                    "token": {
+                        "$ref": "#/components/schemas/jwt_token"
+                    }
+                },
+                "type": "object"
+            },
+            "login_unauthorized": {
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "example": "Unauthorized"
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "https://symfony.com/errors/validation"
+                    },
+                    "status": {
+                        "example": 401
+                    },
+                    "detail": {
+                        "type": "string",
+                        "example": "Invalid credentials, please verify that your username/password are correctly set"
+                    }
+                },
+                "type": "object"
+            },
+            "violations": {
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "example": "https://symfony.com/errors/validation"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Validation Failed"
+                    },
+                    "detail": {
+                        "description": "summary of all violations",
+                        "type": "string",
+                        "example": "field_x: This value is already used."
+                    },
+                    "violations": {
+                        "description": "array of violations",
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "property_path": {
+                                    "description": "field which got the violation",
+                                    "type": "string",
+                                    "example": "field_x"
+                                },
+                                "title": {
+                                    "description": "Error message",
+                                    "type": "string",
+                                    "example": "This value is already used."
+                                },
+                                "parameters": {
+                                    "description": "additional parameters from the validator",
+                                    "type": "object"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "example": "urn:uuid:23bd9dbf-6b9b-41cd-a99e-4844bcf3077f"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "not_found": {
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "example": "https://symfony.com/errors/validation"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "An error occurred"
+                    },
+                    "detail": {
+                        "type": "string",
+                        "example": "Not Found"
+                    }
+                },
+                "type": "object"
+            },
+            "uuid": {
+                "type": "string",
+                "format": "uuid",
+                "example": "23bd9dbf-6b9b-41cd-a99e-4844bcf3077f"
+            },
+            "uuid_nullable": {
+                "type": [
+                    "string",
+                    "null"
+                ],
+                "format": "uuid",
+                "example": "23bd9dbf-6b9b-41cd-a99e-4844bcf3077f"
+            },
+            "jwt_token": {
+                "description": "Returns JWT token",
+                "type": "string",
+                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3YXRjaCI6Imh0dHBzOi8vd3d3LnlvdXR1YmUuY29tL3dhdGNoP3Y9TEhZOGdNX2I0SlkifQ.9Ff8WUuLgweh3XdG3i0kudIg5yMhgx8sROndqz9piRM"
+            },
+            "decoded_jwt_token": {
+                "properties": {
+                    "iat": {
+                        "type": "integer",
+                        "example": 1677841929
+                    },
+                    "exp": {
+                        "type": "integer",
+                        "example": 1677841929
+                    },
+                    "production_id": {
+                        "$ref": "#/components/schemas/uuid"
+                    },
+                    "username": {
+                        "type": "string",
+                        "example": "admin@nep.com"
+                    },
+                    "user_id": {
+                        "$ref": "#/components/schemas/uuid"
+                    },
+                    "context": {
+                        "type": "string",
+                        "example": "driver"
+                    },
+                    "ip": {
+                        "type": "string",
+                        "example": "127.0.0.6"
+                    },
+                    "permissions": {
+                        "properties": {
+                            "multiviewers": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "gpis": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "tags": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "backups": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "panels": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "resources": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "events": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "devices": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "savestates": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "network": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "productions": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "auth": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "configuration": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "categories": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "flows": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "northbounds": {
+                                "type": "integer",
+                                "example": 15
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "productions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/uuid"
+                        }
+                    },
+                    "production_slug": {
+                        "type": "string",
+                        "example": "prod"
+                    },
+                    "production_type": {
+                        "type": "string",
+                        "example": "production"
+                    }
+                },
+                "type": "object"
+            },
+            "login_check_body": {
+                "required": [
+                    "username",
+                    "password"
+                ],
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "examples": [
+                            "user@company.com"
+                        ]
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "examples": [
+                            "6*BMtbE9u"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "Scope": {
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the Scope"
+                    },
+                    "name": {
+                        "description": "Name of the Scope",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "categories"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "_links": {
+                        "properties": {
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "readOnly": true
+                    }
+                },
+                "type": "object"
+            },
+            "RoleScope": {
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the RoleScope"
+                    },
+                    "permission_mask": {
+                        "description": "Permission level of the Scope",
+                        "type": "integer",
+                        "default": 0,
+                        "example": 15
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "_links": {
+                        "properties": {
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "readOnly": true
+                    },
+                    "_embedded": {
+                        "properties": {
+                            "scope": {
+                                "$ref": "#/components/schemas/Scope"
+                            }
+                        },
+                        "readOnly": true
+                    }
+                },
+                "type": "object"
+            },
+            "Role": {
+                "properties": {
+                    "_links": {
+                        "properties": {
+                            "created_by": {
+                                "properties": {
+                                    "href": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "id": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "updated_by": {
+                                "properties": {
+                                    "href": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "id": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object",
+                        "readOnly": true
+                    },
+                    "id": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the Role"
+                    },
+                    "name": {
+                        "description": "Name of the Role",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "MCR_OPERATOR"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "_embedded": {
+                        "properties": {
+                            "role_scopes": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/RoleScope"
+                                }
+                            }
+                        },
+                        "readOnly": true
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "required": [
+                    "email",
+                    "name"
+                ],
+                "properties": {
+                    "_links": {
+                        "properties": {
+                            "created_by": {
+                                "properties": {
+                                    "href": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "id": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "updated_by": {
+                                "properties": {
+                                    "href": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "id": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object",
+                        "readOnly": true
+                    },
+                    "id": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the User"
+                    },
+                    "email": {
+                        "description": "Email address and username of the User",
+                        "type": "string",
+                        "maxLength": 180,
+                        "example": "user@domain.com"
+                    },
+                    "permissions": {
+                        "description": "List of permissions of the User. The property name is the name of the scope.",
+                        "type": "object",
+                        "example": {
+                            "tags": 7,
+                            "categories": 15
+                        },
+                        "additionalProperties": {
+                            "description": "Bitmask of the permissions.\n* `1` - Read\n* `2` - Create\n* `4` - Edit\n* `8` - Delete",
+                            "type": "integer"
+                        }
+                    },
+                    "name": {
+                        "description": "Full name of the User",
+                        "type": "string",
+                        "maxLength": 180,
+                        "example": "John Smith"
+                    },
+                    "productions": {
+                        "description": "IDs of Productions the User has access to.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/uuid"
+                        },
+                        "default": []
+                    },
+                    "preferences": {
+                        "properties": {
+                            "warn_before_closing_form": {
+                                "description": "Configuration to show warning before closing a form.",
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "warn_before_adding_tags_without_category": {
+                                "description": "Configuration to show warning before adding Tags without a Category.",
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "default_routing_level": {
+                                "description": "Configuration of the default routing level.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "video",
+                                    "audio1",
+                                    "audio2",
+                                    "audio3",
+                                    "audio4",
+                                    "meta",
+                                    "data"
+                                ],
+                                "example": "video"
+                            },
+                            "panel_category_sort": {
+                                "description": "User preference for category sorting in panels.",
+                                "type": "string",
+                                "default": "user_label",
+                                "enum": [
+                                    "hardware_name",
+                                    "user_label",
+                                    "tag_name",
+                                    "umd_label_1",
+                                    "umd_label_2",
+                                    "umd_label_3"
+                                ],
+                                "example": "hardware_name"
+                            },
+                            "panel_button_labels": {
+                                "description": "User preference for button label display in panels.",
+                                "type": "string",
+                                "default": "user_label",
+                                "enum": [
+                                    "hardware_name",
+                                    "user_label",
+                                    "tag_name",
+                                    "umd_label_1",
+                                    "umd_label_2",
+                                    "umd_label_3"
+                                ],
+                                "example": "hardware_name"
+                            }
+                        },
+                        "type": "object",
+                        "default": {
+                            "warn_before_closing_form": false,
+                            "warn_before_adding_tags_without_category": false,
+                            "default_routing_level": null,
+                            "panel_category_sort": "user_label",
+                            "panel_button_labels": "user_label"
+                        }
+                    },
+                    "last_session_started_at": {
+                        "description": "This value is automatically updated by the system every time an access token is issued",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "example": "2025-09-01T14:35:22+00:00"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "_embedded": {
+                        "properties": {
+                            "role": {
+                                "$ref": "#/components/schemas/Role"
+                            }
+                        },
+                        "readOnly": true
+                    }
+                },
+                "type": "object"
+            },
+            "UserPreferencesFormType": {
+                "properties": {
+                    "warn_before_closing_form": {
+                        "$ref": "#/components/schemas/User/properties/preferences/properties/warn_before_closing_form"
+                    },
+                    "warn_before_adding_tags_without_category": {
+                        "$ref": "#/components/schemas/User/properties/preferences/properties/warn_before_adding_tags_without_category"
+                    },
+                    "default_routing_level": {
+                        "$ref": "#/components/schemas/User/properties/preferences/properties/default_routing_level"
+                    },
+                    "panel_category_sort": {
+                        "description": "User preference for category sorting in panels.",
+                        "type": "string",
+                        "default": "user_label",
+                        "enum": [
+                            "hardware_name",
+                            "user_label",
+                            "tag_name",
+                            "umd_label_1",
+                            "umd_label_2",
+                            "umd_label_3"
+                        ]
+                    },
+                    "panel_button_labels": {
+                        "description": "User preference for button label display in panels.",
+                        "type": "string",
+                        "default": "user_label",
+                        "enum": [
+                            "hardware_name",
+                            "user_label",
+                            "tag_name",
+                            "umd_label_1",
+                            "umd_label_2",
+                            "umd_label_3"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "UserFormType": {
+                "properties": {
+                    "name": {
+                        "$ref": "#/components/schemas/User/properties/name"
+                    },
+                    "email": {
+                        "$ref": "#/components/schemas/User/properties/email"
+                    },
+                    "password": {
+                        "required": [
+                            "first",
+                            "second"
+                        ],
+                        "properties": {
+                            "first": {
+                                "type": "string",
+                                "format": "password"
+                            },
+                            "second": {
+                                "type": "string",
+                                "format": "password"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "preferences": {
+                        "$ref": "#/components/schemas/UserPreferencesFormType"
+                    }
+                },
+                "type": "object"
+            },
+            "OpenIdConnectParametersFormType": {
+                "required": [
+                    "identity_provider",
+                    "authorization_code",
+                    "code_verifier"
+                ],
+                "properties": {
+                    "identity_provider": {
+                        "description": "Provider to be used for authentication.",
+                        "type": "string",
+                        "enum": [
+                            "okta",
+                            "azure_ad"
+                        ],
+                        "example": "okta"
+                    },
+                    "authorization_code": {
+                        "description": "The authorization code that comes from the provider.",
+                        "type": "string",
+                        "example": "CKA9Utz2GkWlsrmnqehz"
+                    },
+                    "code_verifier": {
+                        "description": "The PKCE code verifier that was generated.",
+                        "type": "string",
+                        "example": "M25iVXpKU3puUjFaYWg3T1NDTDQtcW1ROUY5YXlwalNoc0hhakxifmZHag"
+                    },
+                    "redirect_uri": {
+                        "description": "Optional override of the redirect URI to be used. This URI must be known by the authentication provider, and be used when authorizing.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "https://example.com/redirect"
+                    }
+                },
+                "type": "object"
+            },
+            "SsoGroup": {
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "_links": {
+                        "properties": {
+                            "role": {
+                                "properties": {
+                                    "href": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "self": {
+                                "properties": {
+                                    "href": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object",
+                        "readOnly": true
+                    },
+                    "id": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the SSO Group"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "productions": {
+                        "description": "Production UUIDs the group belongs to",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/uuid"
+                        },
+                        "default": [],
+                        "example": [
+                            "90223b16-c320-4f9b-93f7-da6995b5b566"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "SsoGroupFormType": {
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "name": {
+                        "$ref": "#/components/schemas/SsoGroup/properties/name"
+                    },
+                    "role_id": {
+                        "$ref": "#/components/schemas/uuid_nullable",
+                        "description": "UUID of the role this group is mapped to"
+                    },
+                    "productions": {
+                        "$ref": "#/components/schemas/SsoGroup/properties/productions"
+                    }
+                },
+                "type": "object"
+            },
+            "SsoGroupFormType2": {
+                "properties": {
+                    "name": {
+                        "$ref": "#/components/schemas/SsoGroup/properties/name"
+                    },
+                    "role_id": {
+                        "$ref": "#/components/schemas/uuid_nullable",
+                        "description": "UUID of the role this group is mapped to"
+                    },
+                    "productions": {
+                        "$ref": "#/components/schemas/SsoGroup/properties/productions"
+                    }
+                },
+                "type": "object"
+            },
+            "UserFormType2": {
+                "required": [
+                    "name",
+                    "email",
+                    "password",
+                    "role"
+                ],
+                "properties": {
+                    "name": {
+                        "$ref": "#/components/schemas/User/properties/name"
+                    },
+                    "email": {
+                        "$ref": "#/components/schemas/User/properties/email"
+                    },
+                    "password": {
+                        "required": [
+                            "first",
+                            "second"
+                        ],
+                        "properties": {
+                            "first": {
+                                "type": "string",
+                                "format": "password"
+                            },
+                            "second": {
+                                "type": "string",
+                                "format": "password"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "preferences": {
+                        "$ref": "#/components/schemas/UserPreferencesFormType"
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the role of the user"
+                    },
+                    "productions": {
+                        "$ref": "#/components/schemas/User/properties/productions"
+                    }
+                },
+                "type": "object"
+            },
+            "UserFormType3": {
+                "properties": {
+                    "name": {
+                        "$ref": "#/components/schemas/User/properties/name"
+                    },
+                    "email": {
+                        "$ref": "#/components/schemas/User/properties/email"
+                    },
+                    "password": {
+                        "required": [
+                            "first",
+                            "second"
+                        ],
+                        "properties": {
+                            "first": {
+                                "type": "string",
+                                "format": "password"
+                            },
+                            "second": {
+                                "type": "string",
+                                "format": "password"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "preferences": {
+                        "$ref": "#/components/schemas/UserPreferencesFormType"
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/uuid",
+                        "description": "UUID of the role of the user"
+                    },
+                    "productions": {
+                        "$ref": "#/components/schemas/User/properties/productions"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearer": {
+                "type": "http",
+                "description": "Value: Bearer {jwt}",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "security": [
+        {
+            "bearer": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "User"
+        },
+        {
+            "name": "Authentication"
+        },
+        {
+            "name": "Roles"
+        },
+        {
+            "name": "Role Scopes"
+        },
+        {
+            "name": "Scopes"
+        },
+        {
+            "name": "SsoGroup"
+        },
+        {
+            "name": "SwitchProduction"
+        },
+        {
+            "name": "TokenReference"
+        }
+    ]
+}
