@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — Phase 4b (configuration writes & device actions)
+- Write endpoints proxying validated PUTs to the device, each recorded in a new
+  audit log (`audit_events` table):
+  - `PUT /api/v1/devices/:id/config/network` (reboots device), `/config/protocols`,
+    `/config/syslog`, `/config/routes`
+  - `POST /api/v1/devices/:id/reboot`, `/config-reset`
+  - `GET /api/v1/audit` — config-change / action history
+- Server-side validation: IPv4 for network/syslog/route gateways, CIDR for route
+  destinations, port ranges, and config-reset scope allow-list.
+- Editable **Configuration** tab: per-section Edit toggles with forms (network,
+  protocols, syslog, static routes) and a **Device Actions** card (reboot, four
+  config-reset scopes). Every device-affecting write is gated behind a
+  confirmation dialog; network changes and resets are flagged as reboot/danger.
+- Configuration **audit log** shown in the device Logs tab.
+- Tests for IPv4 validation helpers.
+
 ### Added — Phase 4a (read-only configuration)
 - `GET /api/v1/devices/:id/config` — on-demand, **read-only** aggregation of the
   device's configuration: network (`/self/ipconfig`), system (`/self/system`),

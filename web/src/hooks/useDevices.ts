@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { Device } from '../types/device';
+import type { Device, NetworkUpdate, SyslogUpdate, ProtocolsConfig, StaticRoute, ConfigResetScope } from '../types/device';
 
 export const DEVICES_KEY = ['devices'] as const;
 export const SUMMARY_KEY = ['summary'] as const;
@@ -57,6 +57,46 @@ export function useDeviceConfig(id: string, enabled: boolean) {
     enabled: enabled && !!id,
     staleTime: 60_000,
   });
+}
+
+export function useAuditLog(deviceId?: string, limit = 100) {
+  return useQuery({
+    queryKey: ['audit-log', deviceId ?? 'all', limit],
+    queryFn: () => api.getAuditLog(deviceId, limit),
+    refetchInterval: 30_000,
+  });
+}
+
+// --- Phase 4b config-write mutations. All invalidate the device-config and
+// audit-log queries so the UI reflects the new state after a write. ---
+function useConfigMutation<T>(id: string, fn: (vars: T) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device-config', id] });
+      qc.invalidateQueries({ queryKey: ['audit-log'] });
+    },
+  });
+}
+
+export function useUpdateNetwork(id: string) {
+  return useConfigMutation<NetworkUpdate>(id, (body) => api.updateNetwork(id, body));
+}
+export function useUpdateProtocols(id: string) {
+  return useConfigMutation<ProtocolsConfig>(id, (body) => api.updateProtocols(id, body));
+}
+export function useUpdateSyslog(id: string) {
+  return useConfigMutation<SyslogUpdate>(id, (body) => api.updateSyslog(id, body));
+}
+export function useUpdateRoutes(id: string) {
+  return useConfigMutation<StaticRoute[]>(id, (routes) => api.updateRoutes(id, routes));
+}
+export function useRebootDevice(id: string) {
+  return useConfigMutation<void>(id, () => api.rebootDevice(id));
+}
+export function useConfigReset(id: string) {
+  return useConfigMutation<ConfigResetScope>(id, (scope) => api.configReset(id, scope));
 }
 
 export function useDeviceHistory(id: string) {

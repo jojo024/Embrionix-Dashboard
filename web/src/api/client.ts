@@ -1,4 +1,4 @@
-import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig } from '../types/device';
+import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig, NetworkUpdate, SyslogUpdate, ProtocolsConfig, StaticRoute, ConfigResetScope, AuditLogResponse, AuditEvent } from '../types/device';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
 
@@ -55,6 +55,28 @@ export const api = {
 
   getDeviceConfig: (id: string): Promise<DeviceConfig> =>
     request(`/api/v1/devices/${id}/config`),
+
+  // ---- Configuration writes + device actions (Phase 4b) ----
+  updateNetwork: (id: string, body: NetworkUpdate): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/config/network`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  updateProtocols: (id: string, body: ProtocolsConfig): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/config/protocols`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  updateSyslog: (id: string, body: SyslogUpdate): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/config/syslog`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  updateRoutes: (id: string, routes: StaticRoute[]): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/config/routes`, { method: 'PUT', body: JSON.stringify({ routes }) }),
+
+  rebootDevice: (id: string): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/reboot`, { method: 'POST' }),
+
+  configReset: (id: string, scope: ConfigResetScope): Promise<{ ok: boolean; audit: AuditEvent }> =>
+    request(`/api/v1/devices/${id}/config-reset`, { method: 'POST', body: JSON.stringify({ scope }) }),
+
+  getAuditLog: (deviceId?: string, limit = 100): Promise<AuditLogResponse> =>
+    request(`/api/v1/audit?limit=${limit}${deviceId ? `&device=${deviceId}` : ''}`),
 
   checkReachability: (id: string): Promise<Record<string, { ip: string; reachable: boolean; response_ms: number }>> =>
     request(`/api/v1/devices/${id}/reachability`),
