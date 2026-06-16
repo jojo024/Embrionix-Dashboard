@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/csv"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -102,6 +104,89 @@ func (h *MonitoringHandler) PollDeviceNow(c *gin.Context) {
 		"reachable":    true,
 		"polling_data": data,
 	})
+}
+
+// GetAlertHistory GET /api/v1/alerts
+// Returns the status-transition alert history. Optional `device` query param
+// scopes to one device; `limit` caps the count (default 100).
+func (h *MonitoringHandler) GetAlertHistory(c *gin.Context) {
+	limit := 100
+	if l := c.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	events, err := h.pollRepo.FindAlerts(c.Query("device"), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"alerts": events, "total": len(events)})
+}
+
+// ExportDeviceHistoryCSV GET /api/v1/devices/:id/history.csv
+// Streams poll history as a CSV download.
+func (h *MonitoringHandler) ExportDeviceHistoryCSV(c *gin.Context) {
+	deviceID := c.Param("id")
+	limit := 1000
+	if l := c.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	results, err := h.pollRepo.FindByDevice(deviceID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=history-%s.csv", deviceID))
+
+	w := csv.NewWriter(c.Writer)
+	defer w.Flush()
+	_ = w.Write([]string{
+		"polled_at", "reachable", "response_ms", "core_temp", "fan_speed",
+		"core_voltage", "port0_tx_power", "port0_rx_power", "ptp_locked", "ptp_offset",
+	})
+	for _, r := range results {
+		_ = w.Write([]string{
+			r.PolledAt.Format(time.RFC3339),
+			strconv.FormatBool(r.Reachable),
+			strconv.FormatInt(r.ResponseMs, 10),
+			floatPtr(r.CoreTemp), intPtr(r.FanSpeed), intPtr(r.CoreVoltage),
+			intPtr(r.Port0TxPower), intPtr(r.Port0RxPower),
+			boolPtr(r.PTPLocked), int64Ptr(r.PTPOffset),
+		})
+	}
+}
+
+func floatPtr(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*v, 'f', -1, 64)
+}
+
+func intPtr(v *int) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.Itoa(*v)
+}
+
+func int64Ptr(v *int64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatInt(*v, 10)
+}
+
+func boolPtr(v *bool) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatBool(*v)
 }
 
 // GetDeviceReachability GET /api/v1/devices/:id/reachability
