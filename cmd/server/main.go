@@ -52,6 +52,7 @@ func main() {
 	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling)
 
 	pollingSvc.Start()
+	pollingSvc.StartPruning()
 	defer pollingSvc.Stop()
 
 	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo)

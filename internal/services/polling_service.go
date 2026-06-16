@@ -26,11 +26,15 @@ type PollingService struct {
 }
 
 type pollState struct {
-	LastPolledAt *time.Time
-	Reachable    bool
-	ResponseMs   int64
-	Status       models.DeviceStatus
-	Data         *models.DevicePollingData
+	LastPolledAt   *time.Time
+	Reachable      bool
+	ReachableRed   *bool
+	ReachableBlue  *bool
+	ResponseMs     int64
+	ResponseMsRed  int64
+	ResponseMsBlue int64
+	Status         models.DeviceStatus
+	Data           *models.DevicePollingData
 }
 
 func NewPollingService(
@@ -66,6 +70,41 @@ func (s *PollingService) Start() {
 	logger.Info("polling service started", zap.Int("interval_seconds", s.pollCfg.IntervalSeconds))
 }
 
+// StartPruning launches a daily background job that deletes poll history older
+// than the configured retention window. A retention of 0 disables pruning.
+func (s *PollingService) StartPruning() {
+	days := s.pollCfg.HistoryRetentionDays
+	if days <= 0 {
+		logger.Info("history pruning disabled (retention 0)")
+		return
+	}
+	retention := time.Duration(days) * 24 * time.Hour
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.prune(retention) // prune once on startup
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.prune(retention)
+			case <-s.stop:
+				return
+			}
+		}
+	}()
+	logger.Info("history pruning started", zap.Int("retention_days", days))
+}
+
+func (s *PollingService) prune(retention time.Duration) {
+	if err := s.pollRepo.PruneOlderThan(retention); err != nil {
+		logger.Error("history pruning failed", zap.Error(err))
+		return
+	}
+	logger.Debug("history pruned", zap.Duration("older_than", retention))
+}
+
 func (s *PollingService) Stop() {
 	close(s.stop)
 	s.wg.Wait()
@@ -92,15 +131,37 @@ func (s *PollingService) pollAll() {
 }
 
 func (s *PollingService) pollDevice(device models.Device) {
-	ip := device.ManagementIPRed
-	if ip == "" {
-		ip = device.ManagementIPBlue
-	}
-	if ip == "" {
+	if device.ManagementIPRed == "" && device.ManagementIPBlue == "" {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.pollCfg.TimeoutSeconds)*time.Second)
+	timeout := time.Duration(s.pollCfg.TimeoutSeconds) * time.Second
+	now := time.Now()
+
+	state := &pollState{LastPolledAt: &now}
+	pollResult := &models.PollResult{
+		DeviceID: device.ID,
+		PolledAt: now,
+	}
+
+	// Dual-path reachability: probe Red and Blue independently at L4.
+	probeCtx, probeCancel := context.WithTimeout(context.Background(), timeout)
+	defer probeCancel()
+	if s.pollCfg.ICMPEnabled {
+		s.probeDualPath(probeCtx, device, timeout, state, pollResult)
+	}
+
+	// Choose the IP for the full API poll: prefer a reachable path, else fall
+	// back to Red (or Blue) so we still record a meaningful error.
+	ip := device.ManagementIPRed
+	if state.ReachableRed != nil && !*state.ReachableRed && device.ManagementIPBlue != "" {
+		ip = device.ManagementIPBlue
+	}
+	if ip == "" {
+		ip = device.ManagementIPBlue
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	client := NewEmsfpClient(ip, "80", s.pollCfg.TimeoutSeconds)
@@ -108,18 +169,8 @@ func (s *PollingService) pollDevice(device models.Device) {
 	start := time.Now()
 	pollingData, err := client.Poll(ctx)
 	responseMs := time.Since(start).Milliseconds()
-	now := time.Now()
-
-	state := &pollState{
-		LastPolledAt: &now,
-		ResponseMs:   responseMs,
-	}
-
-	pollResult := &models.PollResult{
-		DeviceID:   device.ID,
-		PolledAt:   now,
-		ResponseMs: responseMs,
-	}
+	state.ResponseMs = responseMs
+	pollResult.ResponseMs = responseMs
 
 	if err != nil {
 		state.Reachable = false
@@ -135,18 +186,7 @@ func (s *PollingService) pollDevice(device models.Device) {
 		state.Reachable = true
 		state.Data = pollingData
 
-		// Determine status based on alarms
-		if len(pollingData.Alarms) > 0 {
-			state.Status = models.StatusWarning
-		} else {
-			state.Status = models.StatusOnline
-		}
-
-		// Temperature critical threshold: >75°C
-		if pollingData.CoreTemp > 75 {
-			state.Status = models.StatusCritical
-			pollingData.Alarms = append(pollingData.Alarms, "Core temperature critical")
-		}
+		state.Status = deriveStatus(pollingData)
 
 		pollResult.Reachable = true
 		temp := pollingData.CoreTemp
@@ -155,6 +195,13 @@ func (s *PollingService) pollDevice(device models.Device) {
 		pollResult.CoreTemp = &temp
 		pollResult.FanSpeed = &fan
 		pollResult.CoreVoltage = &volt
+
+		if pollingData.PTP != nil {
+			locked := pollingData.PTP.Locked
+			offset := pollingData.PTP.OffsetFromMaster
+			pollResult.PTPLocked = &locked
+			pollResult.PTPOffset = &offset
+		}
 
 		if len(pollingData.Ports) > 0 {
 			p0tx := pollingData.Ports[0].TxPower
@@ -205,9 +252,111 @@ func (s *PollingService) EnrichDevice(device *models.Device) {
 	}
 	device.Status = state.Status
 	device.LastPolledAt = state.LastPolledAt
-	b := state.Reachable
-	device.ReachableRed = &b
 	device.PollingData = state.Data
+
+	// Prefer independent dual-path results when available; otherwise fall back
+	// to the single API-poll reachability for the Red (primary) path.
+	if state.ReachableRed != nil {
+		device.ReachableRed = state.ReachableRed
+	} else {
+		b := state.Reachable
+		device.ReachableRed = &b
+	}
+	device.ReachableBlue = state.ReachableBlue
+}
+
+// probeDualPath checks the Red and Blue management IPs independently at L4 and
+// records the results on both the live state and the persisted poll result.
+func (s *PollingService) probeDualPath(
+	ctx context.Context,
+	device models.Device,
+	timeout time.Duration,
+	state *pollState,
+	pollResult *models.PollResult,
+) {
+	var wg sync.WaitGroup
+	if device.ManagementIPRed != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ok, ms := ProbeTCP(ctx, device.ManagementIPRed, "80", timeout)
+			state.ReachableRed = &ok
+			state.ResponseMsRed = ms
+			pollResult.ReachableRed = &ok
+		}()
+	}
+	if device.ManagementIPBlue != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ok, ms := ProbeTCP(ctx, device.ManagementIPBlue, "80", timeout)
+			state.ReachableBlue = &ok
+			state.ResponseMsBlue = ms
+			pollResult.ReachableBlue = &ok
+		}()
+	}
+	wg.Wait()
+}
+
+// deriveStatus maps live polling data to a device status using all health
+// signals collected from the EM6 (alarms, temperature, PTP lock, bandwidth).
+func deriveStatus(pd *models.DevicePollingData) models.DeviceStatus {
+	status := models.StatusOnline
+	if len(pd.Alarms) > 0 {
+		status = models.StatusWarning
+	}
+
+	// Critical conditions escalate above warning.
+	if pd.CoreTemp > 75 {
+		pd.Alarms = append(pd.Alarms, "Core temperature critical (>75°C)")
+		status = models.StatusCritical
+	}
+	return status
+}
+
+// FleetAlarm is a single active alarm attributed to a device.
+type FleetAlarm struct {
+	DeviceID   string             `json:"device_id"`
+	DeviceName string             `json:"device_name"`
+	Status     models.DeviceStatus `json:"status"`
+	Message    string             `json:"message"`
+	PolledAt   *time.Time         `json:"polled_at"`
+}
+
+// FleetAlarms returns every active alarm across all monitored devices, plus an
+// "unreachable" entry for devices whose latest poll failed. Device names are
+// resolved from the supplied map (id -> name).
+func (s *PollingService) FleetAlarms(names map[string]string) []FleetAlarm {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var alarms []FleetAlarm
+	for id, state := range s.results {
+		name := names[id]
+		if !state.Reachable {
+			alarms = append(alarms, FleetAlarm{
+				DeviceID:   id,
+				DeviceName: name,
+				Status:     models.StatusOffline,
+				Message:    "Device unreachable",
+				PolledAt:   state.LastPolledAt,
+			})
+			continue
+		}
+		if state.Data == nil {
+			continue
+		}
+		for _, msg := range state.Data.Alarms {
+			alarms = append(alarms, FleetAlarm{
+				DeviceID:   id,
+				DeviceName: name,
+				Status:     state.Status,
+				Message:    msg,
+				PolledAt:   state.LastPolledAt,
+			})
+		}
+	}
+	return alarms
 }
 
 // Summary returns aggregate counts across all devices.

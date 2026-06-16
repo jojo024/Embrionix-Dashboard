@@ -102,3 +102,19 @@ func (h *DeviceHandler) GetDeviceSummary(c *gin.Context) {
 	counts["total"] = len(devices)
 	c.JSON(http.StatusOK, counts)
 }
+
+// GetFleetAlarms GET /api/v1/alarms
+// Returns every active alarm across the fleet for the dashboard alarm panel.
+func (h *DeviceHandler) GetFleetAlarms(c *gin.Context) {
+	devices, err := h.deviceSvc.ListDevices()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	names := make(map[string]string, len(devices))
+	for _, d := range devices {
+		names[d.ID] = d.Name
+	}
+	alarms := h.pollingSvc.FleetAlarms(names)
+	c.JSON(http.StatusOK, gin.H{"alarms": alarms, "total": len(alarms)})
+}

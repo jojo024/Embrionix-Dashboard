@@ -1,6 +1,6 @@
 server:
   host: "0.0.0.0"
-  port: 8080
+  port: 8081
   mode: "debug"  # debug | release
 
 database:
@@ -14,7 +14,8 @@ polling:
   interval_seconds: 30
   timeout_seconds: 10
   retry_count: 2
-  icmp_enabled: true
+  icmp_enabled: true             # independent L4 (TCP) reachability probe per Red/Blue path
+  history_retention_days: 30     # poll history older than this is pruned daily (0 = keep forever)
 
 cors:
   allowed_origins:

@@ -2,20 +2,22 @@
 
 A production-quality monitoring and management platform for **Embrionix EM6** devices, built with Go and React.
 
-![Phase](https://img.shields.io/badge/Phase-1%20Foundation-blue)
+![Phase](https://img.shields.io/badge/Phase-2%20Monitoring-blue)
 ![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
 
-## Features (Phase 1)
+## Features
 
 - **Device Inventory** — Add, edit, remove, and search EM6 devices with dual-IP (Red/Blue) support
-- **Live Dashboard** — Card and table views with real-time status, colour-coded by health
-- **Background Polling** — Concurrent polling engine that pulls `self/information`, `self/system`, `telemetry/node`, `telemetry/ports`, and SFP DDM data
-- **Historical Metrics** — SQLite time-series storage for temperature, fan speed, SFP TX/RX power, and response time
-- **Per-Device Detail** — Overview, Interfaces, SFP Modules, Monitoring charts, and Logs tabs
+- **Live Dashboard** — Card and table views with real-time status, a fleet-wide alarm panel, and an auto-refresh countdown
+- **Comprehensive Polling** — Every EM6 health/telemetry endpoint is collected: device info, system health, detailed PTP/refclk, firmware banks, licenses, control-plane ethernet counters, per-interface (e1/e2) config, LLDP neighbours, SFP DDM, media-flow telemetry, and SDI — see [API.md → EM6 endpoint coverage](API.md#em6-endpoint-coverage)
+- **Dual-Path Reachability** — Independent L4 probe of the Red and Blue management paths each cycle
+- **Historical Metrics** — SQLite time-series for temperature, fan, SFP TX/RX power, PTP offset, and response time, with a daily pruning job
+- **Per-Device Detail** — Overview (health, PTP, firmware), Interfaces (e1/e2, LLDP, ethernet, media flows), SFP Modules, Monitoring charts, and Logs tabs
+- **Operator UX** — Toast notifications, keyboard shortcut (press **N** to add a device), live API-connectivity indicator
 - **Settings** — Polling configuration, device management, backup/restore groundwork
 
 ---
@@ -41,7 +43,7 @@ cd web && npm install && npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).  
-The frontend dev server proxies `/api` and `/health` to the Go backend on port 8080.
+The frontend dev server proxies `/api` and `/health` to the Go backend on port 8081.
 
 ### Build for production
 
@@ -64,15 +66,17 @@ Copy and edit `configs/config.yaml`:
 
 ```yaml
 server:
-  port: 8080
+  port: 8081
 
 database:
   path: "./data/embrionix.db"
 
 polling:
-  interval_seconds: 30   # How often to poll each device
-  timeout_seconds: 10    # Per-request timeout
+  interval_seconds: 30          # How often to poll each device
+  timeout_seconds: 10           # Per-request timeout
   retry_count: 2
+  icmp_enabled: true            # Independent L4 reachability probe per Red/Blue path
+  history_retention_days: 30    # Prune poll history older than this (0 = keep forever)
 
 cors:
   allowed_origins:
