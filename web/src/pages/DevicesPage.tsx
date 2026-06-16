@@ -5,6 +5,7 @@ import { useDevices, useCreateDevice, useUpdateDevice, useDeleteDevice } from '.
 import { DeviceForm } from '../components/DeviceForm'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../components/Toast'
+import { useAuth } from '../contexts/AuthContext'
 import type { Device } from '../types/device'
 import { formatDate } from '../utils/time'
 
@@ -15,6 +16,7 @@ export function DevicesPage() {
   const deleteDevice = useDeleteDevice()
 
   const { notify } = useToast()
+  const { canWrite } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [editTarget, setEditTarget] = useState<Device | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Device | null>(null)
@@ -88,10 +90,12 @@ export function DevicesPage() {
           <button className="btn-secondary" onClick={() => refetch()}>
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button className="btn-primary" onClick={() => { setEditTarget(null); setShowForm(true) }}>
-            <Plus className="w-4 h-4" />
-            Add Device
-          </button>
+          {canWrite && (
+            <button className="btn-primary" onClick={() => { setEditTarget(null); setShowForm(true) }}>
+              <Plus className="w-4 h-4" />
+              Add Device
+            </button>
+          )}
         </div>
       </div>
 
@@ -165,20 +169,26 @@ export function DevicesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button
-                          className="btn-ghost p-1.5"
-                          title="Edit"
-                          onClick={() => { setEditTarget(device); setShowForm(true) }}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          className="btn-ghost p-1.5 hover:text-red-400"
-                          title="Delete"
-                          onClick={() => setDeleteTarget(device)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canWrite ? (
+                          <>
+                            <button
+                              className="btn-ghost p-1.5"
+                              title="Edit"
+                              onClick={() => { setEditTarget(device); setShowForm(true) }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              className="btn-ghost p-1.5 hover:text-red-400"
+                              title="Delete"
+                              onClick={() => setDeleteTarget(device)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-600">—</span>
+                        )}
                       </div>
                     </td>
                   </tr>

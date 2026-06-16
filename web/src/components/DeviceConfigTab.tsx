@@ -7,6 +7,7 @@ import {
 } from '../hooks/useDevices'
 import { api } from '../api/client'
 import { useToast } from './Toast'
+import { useAuth } from '../contexts/AuthContext'
 import { ConfirmDialog } from './ConfirmDialog'
 import type {
   NetworkConfig, ProtocolsConfig, SyslogConfig, StaticRoute, ConfigResetScope, DeviceConfig,
@@ -53,10 +54,11 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 function SectionHeader({ title, editing, onEdit, onCancel }: {
   title: string; editing: boolean; onEdit: () => void; onCancel: () => void
 }) {
+  const { canWrite } = useAuth()
   return (
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</h3>
-      {editing ? (
+      {!canWrite ? null : editing ? (
         <button className="btn-ghost p-1" onClick={onCancel} title="Cancel"><X className="w-3.5 h-3.5" /></button>
       ) : (
         <button className="btn-ghost p-1 text-slate-500 hover:text-slate-300" onClick={onEdit} title="Edit">
@@ -70,6 +72,7 @@ function SectionHeader({ title, editing, onEdit, onCancel }: {
 export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active: boolean }) {
   const { data: config, isLoading, isError, error, refetch, isFetching } = useDeviceConfig(deviceId, active)
   const { notify } = useToast()
+  const { canWrite } = useAuth()
   const fileInput = useRef<HTMLInputElement>(null)
   const [pendingImport, setPendingImport] = useState<DeviceConfig | null>(null)
   const [includeNetwork, setIncludeNetwork] = useState(false)
@@ -131,9 +134,11 @@ export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active
           <a className="btn-ghost p-1.5" href={api.configExportUrl(deviceId)} download title="Export snapshot (JSON)">
             <Download className="w-4 h-4" />
           </a>
-          <button className="btn-ghost p-1.5" onClick={() => fileInput.current?.click()} title="Restore from snapshot">
-            <Upload className="w-4 h-4" />
-          </button>
+          {canWrite && (
+            <button className="btn-ghost p-1.5" onClick={() => fileInput.current?.click()} title="Restore from snapshot">
+              <Upload className="w-4 h-4" />
+            </button>
+          )}
           <button className="btn-ghost p-1.5" onClick={() => refetch()} disabled={isFetching} title="Refresh">
             <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
           </button>
@@ -175,7 +180,7 @@ export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active
         <RoutesSection deviceId={deviceId} data={config.static_routes ?? []} notify={notify} />
       </div>
 
-      <DeviceActions deviceId={deviceId} notify={notify} />
+      {canWrite && <DeviceActions deviceId={deviceId} notify={notify} />}
     </div>
   )
 }

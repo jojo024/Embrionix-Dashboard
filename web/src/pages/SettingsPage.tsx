@@ -1,23 +1,116 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Server, Clock, Bell, Download, Info, ChevronRight, Layers } from 'lucide-react'
+import { Server, Clock, Bell, Download, Info, ChevronRight, Layers, Users, Trash2, Plus } from 'lucide-react'
 import { clsx } from 'clsx'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
 import { useDevices } from '../hooks/useDevices'
 import { useToast } from '../components/Toast'
+import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
+import type { Role } from '../types/device'
 
-type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'about'
+type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'users' | 'about'
 
-const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
   { id: 'devices', label: 'Device Management', icon: Server },
   { id: 'polling', label: 'Polling Configuration', icon: Clock },
   { id: 'alerting', label: 'Alerting', icon: Bell },
   { id: 'bulk', label: 'Bulk Configuration', icon: Layers },
   { id: 'backup', label: 'Backup & Restore', icon: Download },
+  { id: 'users', label: 'Users & Access', icon: Users, adminOnly: true },
   { id: 'about', label: 'About', icon: Info },
 ]
+
+function UsersSettings() {
+  const { authEnabled } = useAuth()
+  const { notify } = useToast()
+  const qc = useQueryClient()
+  const { data } = useQuery({ queryKey: ['users'], queryFn: () => api.listUsers(), enabled: authEnabled })
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState<Role>('viewer')
+
+  const reload = () => qc.invalidateQueries({ queryKey: ['users'] })
+
+  if (!authEnabled) {
+    return (
+      <div className="max-w-md card p-4 text-sm text-slate-400">
+        Authentication is currently <strong>disabled</strong>, so the dashboard runs with no
+        login and full access. Enable it in <span className="font-mono">configs/config.yaml</span>{' '}
+        (<span className="font-mono">auth.enabled: true</span> + a <span className="font-mono">jwt_secret</span>)
+        to manage users and roles here.
+      </div>
+    )
+  }
+
+  const create = async () => {
+    try {
+      await api.createUser(username, password, role)
+      notify('success', `User "${username}" created.`)
+      setUsername(''); setPassword(''); setRole('viewer'); reload()
+    } catch (e) { notify('error', `Create failed: ${(e as Error).message}`) }
+  }
+  const changeRole = async (id: number, r: Role) => {
+    try { await api.updateUser(id, { role: r }); notify('success', 'Role updated.'); reload() }
+    catch (e) { notify('error', `Update failed: ${(e as Error).message}`) }
+  }
+  const remove = async (id: number, name: string) => {
+    try { await api.deleteUser(id); notify('success', `Deleted "${name}".`); reload() }
+    catch (e) { notify('error', `Delete failed: ${(e as Error).message}`) }
+  }
+
+  return (
+    <div className="max-w-2xl space-y-5">
+      <div className="card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-surface-700 text-xs text-slate-500">
+              <th className="px-4 py-2 text-left font-medium">Username</th>
+              <th className="px-4 py-2 text-left font-medium">Role</th>
+              <th className="px-4 py-2 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-800">
+            {(data?.users ?? []).map(u => (
+              <tr key={u.id} className="hover:bg-surface-800/50">
+                <td className="px-4 py-2 text-slate-200">{u.username}</td>
+                <td className="px-4 py-2">
+                  <select className="input py-1 text-xs w-32" value={u.role} onChange={e => changeRole(u.id, e.target.value as Role)}>
+                    <option value="viewer">viewer</option>
+                    <option value="operator">operator</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <button className="btn-ghost p-1.5 hover:text-red-400" onClick={() => remove(u.id, u.username)} title="Delete">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card p-4 space-y-3">
+        <h3 className="text-sm font-medium text-slate-100">Add User</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <input className="input" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
+          <input className="input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+          <select className="input" value={role} onChange={e => setRole(e.target.value as Role)}>
+            <option value="viewer">viewer</option>
+            <option value="operator">operator</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <button className="btn-primary" onClick={create} disabled={!username || !password}>
+          <Plus className="w-4 h-4" /> Add User
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function BulkConfigSettings() {
   const { data } = useDevices()
@@ -235,7 +328,7 @@ function AboutPage() {
           <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">E</div>
           <div>
             <div className="font-semibold text-slate-100">Embrionix Dashboard</div>
-            <div className="text-xs text-slate-500">Version 0.3.0 — Phase 3</div>
+            <div className="text-xs text-slate-500">Version 0.5.0 — Phase 5</div>
           </div>
         </div>
         <div className="border-t border-surface-700 pt-3 space-y-2 text-xs text-slate-400">
@@ -258,9 +351,9 @@ function AboutPage() {
         {[
           ['Phase 1', 'Foundation — inventory, basic dashboard', 'done'],
           ['Phase 2', 'Monitoring — full EM6 telemetry, reachability, SFP', 'done'],
-          ['Phase 3', 'Advanced Monitoring — sparklines, alerts, webhooks, CSV', 'in_progress'],
-          ['Phase 4', 'Configuration Management — backup/restore', 'pending'],
-          ['Phase 5', 'Enterprise — RBAC, audit logs, notifications', 'pending'],
+          ['Phase 3', 'Advanced Monitoring — sparklines, alerts, webhooks, CSV', 'done'],
+          ['Phase 4', 'Configuration Management — writes, backup/restore, bulk', 'done'],
+          ['Phase 5', 'Enterprise — auth, RBAC, audit, user management', 'in_progress'],
         ].map(([phase, desc, status]) => (
           <div key={phase} className="flex items-start gap-3 py-2 border-b border-surface-800 last:border-0">
             <span className={clsx(
@@ -282,13 +375,15 @@ function AboutPage() {
   )
 }
 
-const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'bulk', 'backup', 'about']
+const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'bulk', 'backup', 'users', 'about']
 
 export function SettingsPage() {
   const { tab } = useParams<{ tab?: string }>()
+  const { isAdmin } = useAuth()
   const initialTab = (tab && VALID_TABS.includes(tab as Tab) ? tab : 'devices') as Tab
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const navigate = useNavigate()
+  const visibleTabs = TABS.filter(t => !t.adminOnly || isAdmin)
 
   const handleTabChange = (t: Tab) => {
     setActiveTab(t)
@@ -305,7 +400,7 @@ export function SettingsPage() {
       <div className="flex gap-6">
         {/* Sidebar nav */}
         <nav className="w-52 shrink-0 space-y-0.5">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {visibleTabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => handleTabChange(id)}
@@ -332,6 +427,7 @@ export function SettingsPage() {
           {activeTab === 'alerting' && <AlertingSettings />}
           {activeTab === 'bulk'     && <BulkConfigSettings />}
           {activeTab === 'backup'   && <BackupRestore />}
+          {activeTab === 'users'    && <UsersSettings />}
           {activeTab === 'about'    && <AboutPage />}
         </div>
       </div>
