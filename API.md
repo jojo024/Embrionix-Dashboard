@@ -70,7 +70,7 @@ Returns a single device enriched with polling data.
 
 ### `POST /api/v1/devices`
 
-Create a new device.
+Create a new device. **Required:** `name`, and at least one of `management_ip_red` or `management_ip_blue`. The firmware version is automatically fetched from the device.
 
 **Request body**
 ```json
@@ -81,7 +81,6 @@ Create a new device.
   "rack": "Rack 3, Unit 12",
   "serial_number": "EMB-2024-00001",
   "model": "Embox6",
-  "firmware_version": "",
   "management_ip_red": "192.168.1.100",
   "management_ip_blue": "192.168.2.100",
   "tags": "production,encoding",
@@ -90,7 +89,7 @@ Create a new device.
 }
 ```
 
-**Response 201** — Created device with generated `id`.
+**Response 201** — Created device with generated `id`. If the device was reachable, `firmware_version` is auto-populated; if not, it's left blank and can be added later.
 
 ### `PUT /api/v1/devices/:id`
 

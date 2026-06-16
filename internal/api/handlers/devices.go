@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -49,12 +50,44 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 }
 
 // CreateDevice POST /api/v1/devices
+// Requires name and at least one management IP (red or blue). Automatically fetches
+// the firmware version from the device via the API.
 func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	var device models.Device
 	if err := c.ShouldBindJSON(&device); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Validate required fields
+	if device.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+	if device.ManagementIPRed == "" && device.ManagementIPBlue == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one of management_ip_red or management_ip_blue is required"})
+		return
+	}
+
+	// Auto-fetch serial number and firmware version from the device
+	ip := device.ManagementIPRed
+	if ip == "" {
+		ip = device.ManagementIPBlue
+	}
+
+	client := services.NewEmsfpClient(ip, "80", 10)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	info, err := client.FetchInfo(ctx)
+	if err == nil {
+		// Auto-populate firmware version from device; don't override if user provided it
+		if device.FirmwareVersion == "" && info.CurrentVersion != "" {
+			device.FirmwareVersion = info.CurrentVersion
+		}
+	}
+	// If fetch fails, continue anyway (device may be offline at registration time)
+
 	device.CreatedAt = time.Now()
 	device.UpdatedAt = time.Now()
 
