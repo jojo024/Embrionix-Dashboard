@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Search, RefreshCw } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useDevices, useCreateDevice, useUpdateDevice, useDeleteDevice } from '../hooks/useDevices'
 import { DeviceForm } from '../components/DeviceForm'
 import { StatusBadge } from '../components/StatusBadge'
+import { useToast } from '../components/Toast'
 import type { Device } from '../types/device'
 import { formatDate } from '../utils/time'
 
@@ -13,10 +14,26 @@ export function DevicesPage() {
   const updateDevice = useUpdateDevice()
   const deleteDevice = useDeleteDevice()
 
+  const { notify } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [editTarget, setEditTarget] = useState<Device | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Device | null>(null)
   const [search, setSearch] = useState('')
+
+  // Keyboard shortcut: press "n" to open the Add Device form (ignored while typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+        e.preventDefault()
+        setEditTarget(null)
+        setShowForm(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const devices = (data?.devices ?? []).filter(d =>
     !search ||
@@ -26,20 +43,37 @@ export function DevicesPage() {
   )
 
   const handleCreate = async (form: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data'>) => {
-    await createDevice.mutateAsync(form)
-    setShowForm(false)
+    try {
+      await createDevice.mutateAsync(form)
+      setShowForm(false)
+      notify('success', `Device "${form.name}" added.`)
+    } catch (e) {
+      notify('error', `Failed to add device: ${(e as Error).message}`)
+    }
   }
 
   const handleUpdate = async (form: typeof editTarget & object) => {
     if (!editTarget) return
-    await updateDevice.mutateAsync({ ...editTarget, ...form })
-    setEditTarget(null)
+    try {
+      await updateDevice.mutateAsync({ ...editTarget, ...form })
+      setEditTarget(null)
+      setShowForm(false)
+      notify('success', `Device "${editTarget.name}" updated.`)
+    } catch (e) {
+      notify('error', `Failed to update device: ${(e as Error).message}`)
+    }
   }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    await deleteDevice.mutateAsync(deleteTarget.id)
-    setDeleteTarget(null)
+    const name = deleteTarget.name
+    try {
+      await deleteDevice.mutateAsync(deleteTarget.id)
+      setDeleteTarget(null)
+      notify('success', `Device "${name}" deleted.`)
+    } catch (e) {
+      notify('error', `Failed to delete device: ${(e as Error).message}`)
+    }
   }
 
   return (

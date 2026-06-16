@@ -27,6 +27,14 @@ type PollResult struct {
 	Port1RxPower *int     `json:"port1_rx_power"`
 	Port1Temp    *float64 `json:"port1_temp"`
 
+	// PTP / refclk trend
+	PTPLocked *bool  `json:"ptp_locked"`
+	PTPOffset *int64 `json:"ptp_offset"`
+
+	// Dual-path reachability snapshot
+	ReachableRed  *bool `json:"reachable_red"`
+	ReachableBlue *bool `json:"reachable_blue"`
+
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 

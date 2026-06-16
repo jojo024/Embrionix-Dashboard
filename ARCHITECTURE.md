@@ -58,23 +58,28 @@ cmd/server/main.go
 ### Component Hierarchy
 
 ```
-App (BrowserRouter)
-└── Layout (sidebar + topbar)
-    ├── Dashboard         — card/table view of all devices
-    ├── DevicesPage       — inventory CRUD
-    ├── DeviceDetail      — tabbed per-device view
-    │     ├── OverviewTab
-    │     ├── InterfacesTab
-    │     ├── SFPTab
-    │     ├── MonitoringTab  (Recharts line charts + poll table)
-    │     └── LogsTab
-    ├── MonitoringPage    — fleet-wide health table + bar chart
-    └── SettingsPage      — device mgmt, polling config, backup, about
+App (BrowserRouter, Suspense)
+└── ToastProvider
+    └── Layout (sidebar + topbar with live API indicator)
+        ├── Dashboard         — card/table view + FleetAlarmPanel + RefreshCountdown
+        ├── DevicesPage       — inventory CRUD (toasts, "N" shortcut)   [lazy]
+        ├── DeviceDetail      — tabbed per-device view                  [lazy]
+        │     ├── OverviewTab    (health, PTP, system, firmware)
+        │     ├── InterfacesTab  (e1/e2, LLDP, ethernet, media flows, SFP)
+        │     ├── SFPTab
+        │     ├── MonitoringTab  (Recharts: temp, SFP power, PTP offset, response)
+        │     └── LogsTab
+        ├── MonitoringPage    — fleet-wide health table + bar chart     [lazy]
+        └── SettingsPage      — device mgmt, polling config, about      [lazy]
 ```
+
+Routes marked `[lazy]` are `React.lazy` + `Suspense` code-split so the
+recharts-heavy pages stay out of the initial bundle. Vendor libraries (recharts,
+React, React Query) are further split via `manualChunks` in `vite.config.ts`.
 
 ### State Management
 
-React Query handles all server state (caching, background refetch, loading/error states). No global client-side store is needed — component props and query keys are sufficient. Refetch interval is 30 s for device lists, 60 s for history.
+React Query handles all server state (caching, background refetch, loading/error states). No global client-side store is needed — component props and query keys are sufficient. Refetch interval is 30 s for device lists, summary and alarms; 60 s for history. Transient UI feedback (CRUD/poll results) flows through a small `ToastProvider` context.
 
 ### Styling
 
@@ -86,20 +91,49 @@ Tailwind CSS v3 with a custom `surface` and `brand` palette designed for dark-mo
 
 ```
 PollingService.pollAll()          (every N seconds)
-  └─ for each monitoring-enabled device
-       └─ EmsfpClient.Poll(ctx)
-            ├─ GET /self/information   → firmware, type
-            ├─ GET /self/ipconfig      → hostname, IP, MAC
-            ├─ GET /self/system        → temp, fan, uptime
-            ├─ GET /telemetry/node     → health + PTP
-            ├─ GET /telemetry/ports    → per-port SFP summary
-            └─ GET /port/{id}          → full DDM per port
-       └─ Determine DeviceStatus (online / warning / critical / offline)
-       └─ Write PollResult to SQLite
+  └─ for each monitoring-enabled device  (own goroutine)
+       ├─ probeDualPath()        → TCP-connect Red + Blue (concurrent) → reachable_red/blue
+       └─ EmsfpClient.Poll(ctx)  (against the reachable path)
+            ├─ GET /self/information      → versions, type            (mandatory)
+            ├─ GET /self/ipconfig         → hostname, IP, MAC
+            ├─ GET /self/system           → temp, fan, voltage, uptime
+            ├─ GET /telemetry/node        → health + PTP summary
+            ├─ GET /telemetry/ports       → per-port SFP summary
+            ├─ GET /self/diag/refclk      → detailed PTP (offset, delay, counters)
+            ├─ GET /self/firmware         → firmware banks
+            ├─ GET /self/license          → licensed features
+            ├─ GET /self/diag/ethernet    → control-plane packet counters
+            ├─ GET /self/diag/common      → video bandwidth, watchdog, drops
+            ├─ GET /self/interfaces       → per-interface (e1/e2) config
+            ├─ GET /lldp                  → neighbour
+            ├─ GET /telemetry/devices     → media-flow packet counters
+            ├─ GET /sdi                   → SDI bit rate
+            └─ GET /port/{id}             → full DDM per port
+       └─ deriveStatus()         → online / warning / critical / offline
+       └─ Write PollResult to SQLite (temp, fan, SFP power, PTP offset, dual-path)
        └─ Update in-memory results map
 ```
 
+Every endpoint except `/self/information` is best-effort: a single failure is
+tolerated so device-type-specific endpoints (e.g. `/sdi`) don't fail the poll.
+The full endpoint→data mapping is in [API.md](API.md#em6-endpoint-coverage).
+
 Frontend GET `/api/v1/devices` → handler reads from in-memory map (no DB read for status), returns enriched Device array.
+
+### Background jobs
+
+Alongside the poll ticker, `PollingService` runs two more goroutines, all stopped
+via the shared `stop` channel:
+
+- **Poll scheduler** — `time.Ticker` at `polling.interval_seconds`.
+- **History pruner** — daily `time.Ticker`; deletes `poll_results` older than
+  `polling.history_retention_days` (skipped when `0`).
+
+### Reachability probe
+
+Dual-path reachability uses a **TCP connect** to the management port rather than
+raw ICMP, so the server runs unprivileged. Gated by `polling.icmp_enabled`. See
+[ISSUES.md](ISSUES.md) for the rationale.
 
 ---
 

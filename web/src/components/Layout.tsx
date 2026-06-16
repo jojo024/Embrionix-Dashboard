@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Server, Settings, Activity, Menu, X, Radio } from 'lucide-react';
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useApiStatus } from '../hooks/useApiStatus';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,6 +16,7 @@ interface Props { children: React.ReactNode }
 export function Layout({ children }: Props) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const apiConnected = useApiStatus();
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
@@ -86,8 +88,8 @@ export function Layout({ children }: Props) {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="status-dot status-online" />
-            <span>API connected</span>
+            <span className={clsx('status-dot', apiConnected ? 'status-online' : 'status-offline')} />
+            <span>{apiConnected ? 'API connected' : 'API disconnected'}</span>
           </div>
         </header>
 

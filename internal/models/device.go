@@ -74,6 +74,35 @@ type DevicePollingData struct {
 	GrandmasterID  string `json:"grandmaster_id"`
 	OffsetFromMaster int64 `json:"offset_from_master"`
 
+	// /self/diag/refclk - detailed PTP status
+	PTP *PTPStatus `json:"ptp,omitempty"`
+
+	// /self/firmware - firmware bank slots
+	FirmwareSlots []FirmwareSlot `json:"firmware_slots,omitempty"`
+
+	// /self/license - licensed feature map (feature -> "licensed"/"unlicensed")
+	Licenses map[string]string `json:"licenses,omitempty"`
+
+	// /self/diag/ethernet - control-plane packet counters
+	Ethernet *EthernetStats `json:"ethernet,omitempty"`
+
+	// /self/diag/common - device-level health stats
+	VideoBandwidthUsage string `json:"video_bandwidth_usage,omitempty"`
+	WatchdogStatus      string `json:"watchdog_status,omitempty"`
+	IPv4PacketDrop      string `json:"ipv4_packet_drop,omitempty"`
+
+	// /self/interfaces - per-interface network config (e1, e2 ...)
+	Interfaces []NetworkInterface `json:"interfaces,omitempty"`
+
+	// /lldp - discovered neighbour
+	LLDP *LLDPNeighbor `json:"lldp,omitempty"`
+
+	// /telemetry/devices - media flow packet counters
+	MediaDevices []MediaDeviceTelemetry `json:"media_devices,omitempty"`
+
+	// /sdi - SDI configuration / signal
+	SDIBitRate string `json:"sdi_bit_rate,omitempty"`
+
 	// /telemetry/ports - SFP per port
 	Ports []PortTelemetry `json:"ports"`
 
@@ -82,6 +111,67 @@ type DevicePollingData struct {
 
 	// Errors/alarms
 	Alarms []string `json:"alarms"`
+}
+
+// PTPStatus holds decoded PTP/refclk diagnostics from /self/diag/refclk.
+type PTPStatus struct {
+	StatusCode       string `json:"status_code"`        // raw hex value e.g. "3"
+	StatusLabel      string `json:"status_label"`       // human label: unlocked/coarse lock/locked
+	Locked           bool   `json:"locked"`             // true when fully locked (status 3)
+	MasterIP         string `json:"master_ip"`
+	OffsetFromMaster int64  `json:"offset_from_master"` // nanoseconds
+	MeanDelay        int64  `json:"mean_delay"`         // nanoseconds
+	SyncCounter      int64  `json:"sync_counter"`
+	DelayReqCounter  int64  `json:"delay_request_counter"`
+	CoarseUnlock     bool   `json:"coarse_unlock"`
+	Unlock           bool   `json:"unlock"`
+}
+
+// FirmwareSlot describes one firmware bank from /self/firmware.
+type FirmwareSlot struct {
+	Slot      int    `json:"slot"`
+	ProductID int    `json:"product_id"`
+	Desc      string `json:"desc"`
+	Version   string `json:"version"`
+	Active    bool   `json:"active"`
+	Default   bool   `json:"default"`
+}
+
+// EthernetStats holds control-plane packet counters from /self/diag/ethernet.
+type EthernetStats struct {
+	TxPackets string `json:"tx_packets"`
+	RxPackets string `json:"rx_packets"`
+	RxError   string `json:"rx_error"`
+	TxRate    string `json:"tx_rate"`
+	RxRate    string `json:"rx_rate"`
+}
+
+// NetworkInterface describes one device interface (e1, e2) from /self/interfaces.
+type NetworkInterface struct {
+	Name           string `json:"name"`
+	StaticIP       string `json:"static_ip"`
+	StaticGateway  string `json:"static_gateway"`
+	CurrentIP      string `json:"current_ip"`
+	CurrentGateway string `json:"current_gateway"`
+	DHCP           bool   `json:"dhcp"`
+	VLAN           int    `json:"vlan"`
+}
+
+// LLDPNeighbor holds the discovered LLDP neighbour from /lldp.
+type LLDPNeighbor struct {
+	ChassisID string `json:"chassis_id"`
+	PortID    string `json:"port_id"`
+	TTL       string `json:"ttl"`
+}
+
+// MediaDeviceTelemetry summarises one media device's flow activity from /telemetry/devices.
+type MediaDeviceTelemetry struct {
+	Device   string `json:"device"`
+	Channel  int    `json:"channel"`
+	Type     string `json:"type"`
+	Valid    bool   `json:"valid"`
+	FlowCount int   `json:"flow_count"`
+	TotalPkts int64 `json:"total_pkts"`
 }
 
 type PortTelemetry struct {

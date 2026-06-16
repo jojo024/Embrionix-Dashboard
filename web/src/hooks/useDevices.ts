@@ -30,6 +30,16 @@ export function useSummary() {
   });
 }
 
+export const ALARMS_KEY = ['alarms'] as const;
+
+export function useFleetAlarms() {
+  return useQuery({
+    queryKey: ALARMS_KEY,
+    queryFn: () => api.getFleetAlarms(),
+    refetchInterval: 30_000,
+  });
+}
+
 export function useDeviceHistory(id: string) {
   return useQuery({
     queryKey: ['device-history', id],

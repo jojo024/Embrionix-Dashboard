@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1 — Foundation ✅ (current)
+## Phase 1 — Foundation ✅
 
 **Goal:** Working skeleton that lets operators manage a device inventory and see live health at a glance.
 
@@ -20,20 +20,20 @@
 
 ---
 
-## Phase 2 — Monitoring
+## Phase 2 — Monitoring ✅
 
 **Goal:** Rich, reliable monitoring with actionable alarm visibility.
 
-- [ ] ICMP ping reachability check per device (separate from API poll)
-- [ ] Dual-path reachability (Red + Blue independently tracked)
+- [x] Reachability probe per device, separate from the API poll (TCP-connect; true ICMP tracked in [TODO.md](TODO.md))
+- [x] Dual-path reachability (Red + Blue independently tracked)
+- [x] Fleet-wide alarm panel on Dashboard
+- [x] `self/diag/ethernet` stats — TX/RX packet counters, error rates
+- [x] LLDP neighbour info (`/lldp`) surfaced on Interfaces tab
+- [x] PTP/refclk status prominently displayed per device (detailed `/self/diag/refclk`)
+- [x] Auto-refresh indicator (countdown to next poll)
+- [x] Firmware banks, license features, per-interface config, media-flow telemetry, SDI bit rate
 - [ ] Alarm deduplication — don't store the same alarm twice
 - [ ] Alarm history table in device Logs tab
-- [ ] Fleet-wide alarm panel on Dashboard
-- [ ] Optical thresholds from SFP DDM — highlight values vs. alarm/warn limits
-- [ ] `self/diag/ethernet` stats — TX/RX packet counters, error rates
-- [ ] LLDP neighbour info (`/lldp`) surfaced on Interfaces tab
-- [ ] PTP/refclk status prominently displayed per device
-- [ ] Auto-refresh indicator (countdown to next poll)
 - [ ] Device uptime tracking and alerting on unexpected reboots
 
 ---
@@ -42,8 +42,8 @@
 
 **Goal:** Historical trends and configurable alerting.
 
-- [ ] Extended retention settings (configurable days to keep poll history)
-- [ ] History pruning background job
+- [x] Extended retention settings (configurable days to keep poll history)
+- [x] History pruning background job
 - [ ] Dashboard trend sparklines per device card
 - [ ] Recharts zoom/pan on monitoring charts
 - [ ] Export chart data as CSV
