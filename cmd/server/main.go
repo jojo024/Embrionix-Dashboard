@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// Auto-migrate models
-	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}, &models.AlertEvent{}); err != nil {
+	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}, &models.AlertEvent{}, &models.AuditEvent{}); err != nil {
 		logger.Fatal("failed to migrate database", zap.Error(err))
 	}
 

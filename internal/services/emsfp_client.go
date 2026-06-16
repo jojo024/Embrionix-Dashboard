@@ -1,9 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sort"
@@ -56,6 +58,34 @@ func (c *EmsfpClient) get(ctx context.Context, path string, out interface{}) err
 		return fmt.Errorf("HTTP %d from %s", resp.StatusCode, path)
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// put sends a JSON PUT to the device. The body is marshalled from in; the
+// response body is discarded (device PUTs return a status envelope). A non-2xx
+// status is returned as an error so callers can surface and audit the failure.
+func (c *EmsfpClient) put(ctx context.Context, path string, in interface{}) error {
+	body, err := json.Marshal(in)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, path, string(msg))
+	}
+	return nil
 }
 
 // --- Response structs mirroring the emSFP API ---
@@ -650,6 +680,67 @@ func (c *EmsfpClient) FetchConfig(ctx context.Context) (*models.DeviceConfig, er
 	}
 
 	return cfg, nil
+}
+
+// --- Write methods (PUT). Each writes only the section it is given. ---
+
+// UpdateNetwork writes /self/ipconfig. NOTE: the device reboots to apply.
+func (c *EmsfpClient) UpdateNetwork(ctx context.Context, n models.NetworkUpdate) error {
+	return c.put(ctx, "/self/ipconfig", n)
+}
+
+// UpdateProtocols writes /self/protocols (mDNS, Ember+, SAP).
+func (c *EmsfpClient) UpdateProtocols(ctx context.Context, p models.ProtocolsConfig) error {
+	return c.put(ctx, "/self/protocols", p)
+}
+
+// UpdateSyslog writes /self/syslog (server/port/enable + monitoring events).
+func (c *EmsfpClient) UpdateSyslog(ctx context.Context, s models.SyslogUpdate) error {
+	body := map[string]interface{}{
+		"config": map[string]interface{}{
+			"server": s.Server,
+			"port":   s.Port,
+			"enable": s.Enable,
+		},
+	}
+	if s.Monitoring != nil {
+		body["monitoring"] = s.Monitoring
+	}
+	return c.put(ctx, "/self/syslog", body)
+}
+
+// UpdateStaticRoutes writes /self/static_route. The device exposes a fixed set
+// of route slots; unused slots are sent as the default 0.0.0.0/0 → 0.0.0.0.
+func (c *EmsfpClient) UpdateStaticRoutes(ctx context.Context, routes []models.StaticRoute) error {
+	const slots = 5
+	body := make(map[string]map[string]string, slots)
+	for i := 1; i <= slots; i++ {
+		body[fmt.Sprintf("route_%d", i)] = map[string]string{
+			"destination": "0.0.0.0/0",
+			"gateway":     "0.0.0.0",
+		}
+	}
+	for i, r := range routes {
+		if i >= slots {
+			break
+		}
+		body[fmt.Sprintf("route_%d", i+1)] = map[string]string{
+			"destination": r.Destination,
+			"gateway":     r.Gateway,
+		}
+	}
+	return c.put(ctx, "/self/static_route", body)
+}
+
+// Reboot triggers a device reboot via /self/system.
+func (c *EmsfpClient) Reboot(ctx context.Context) error {
+	return c.put(ctx, "/self/system", map[string]string{"reboot": "1"})
+}
+
+// ConfigReset resets device configuration via /self/system. scope is one of
+// flows, application, generic, system. The device reboots to apply.
+func (c *EmsfpClient) ConfigReset(ctx context.Context, scope string) error {
+	return c.put(ctx, "/self/system", map[string]string{"config_reset": scope})
 }
 
 // asString coerces a JSON value (string or number) to a string for display.

@@ -45,6 +45,19 @@ type AppSetting struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// AuditEvent records a configuration write or device action performed through
+// the dashboard (Phase 4b), for traceability on shared/live systems.
+type AuditEvent struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	DeviceID   string    `gorm:"index;not null" json:"device_id"`
+	DeviceName string    `json:"device_name"`
+	Action     string    `json:"action"`  // e.g. config.network, reboot, config_reset
+	Detail     string    `json:"detail"`  // human summary of the change
+	Success    bool      `json:"success"`
+	Message    string    `json:"message"` // error text when Success is false
+	CreatedAt  time.Time `gorm:"index" json:"created_at"`
+}
+
 // AlertEvent records a device status transition (e.g. online -> critical) for
 // the alert history and is the payload sent to notification webhooks.
 type AlertEvent struct {

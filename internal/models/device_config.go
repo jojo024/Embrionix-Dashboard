@@ -54,3 +54,27 @@ type DNSConfig struct {
 	ServerAddress string `json:"server_address"`
 	DomainName    string `json:"domain_name"`
 }
+
+// --- Write request payloads (Phase 4b). Field names match the emSFP API so
+// they marshal straight onto the device. ---
+
+// NetworkUpdate is the body for PUT /self/ipconfig. The device reboots to apply.
+type NetworkUpdate struct {
+	IPAddress     string `json:"ip_addr"`
+	SubnetMask    string `json:"subnet_mask"`
+	Gateway       string `json:"gateway"`
+	Hostname      string `json:"hostname"`
+	Port          string `json:"port"`
+	DHCPEnable    string `json:"dhcp_enable"`
+	CtlVLANID     string `json:"ctl_vlan_id"`
+	CtlVLANPCP    string `json:"ctl_vlan_pcp"`
+	CtlVLANEnable string `json:"ctl_vlan_enable"`
+}
+
+// SyslogUpdate is the body for PUT /self/syslog.
+type SyslogUpdate struct {
+	Server     string                     `json:"server"`
+	Port       int                        `json:"port"`
+	Enable     bool                       `json:"enable"`
+	Monitoring map[string]map[string]bool `json:"monitoring,omitempty"`
+}
