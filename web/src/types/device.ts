@@ -324,6 +324,27 @@ export interface SyslogUpdate {
 
 export type ConfigResetScope = 'flows' | 'application' | 'generic' | 'system';
 
+export type Role = 'viewer' | 'operator' | 'admin';
+
+export interface User {
+  id: number;
+  username: string;
+  role: Role;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthMe {
+  auth_enabled: boolean;
+  username: string;
+  role: Role;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: { id: number; username: string; role: Role };
+}
+
 export interface AuditEvent {
   id: number;
   device_id: string;

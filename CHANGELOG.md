@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — Phase 5 (authentication, RBAC & user management)
+- Optional auth, **disabled by default** (`auth.enabled: false`) so existing
+  deployments keep running with no login. Enabling requires a `jwt_secret` and
+  seeds an admin on first start (password from config, or generated + logged once).
+- Local accounts (bcrypt) and JWT bearer auth; optional static `X-API-Key`
+  (admin-equivalent) for integrations.
+- RBAC with three roles enforced server-side: **viewer** (read), **operator**
+  (+ device writes / config / actions), **admin** (+ user management). Routes are
+  grouped by privilege; the API is the source of truth (403 on under-privilege).
+- Endpoints: `POST /auth/login`, `GET /auth/me`, and admin `GET/POST/PUT/DELETE /users`.
+- Frontend: login screen, auth context, token handling with 401 → re-login,
+  username/role + sign-out in the top bar, role-gated controls (Add Device,
+  config editing, device actions, Poll Now), and a Settings → Users & Access tab.
+- Tests for role ranking, password hashing, and JWT issue/verify.
+
+Deferred (documented in ROADMAP/ISSUES): PostgreSQL backend, LDAP/AD, token
+refresh rotation, scheduled PDF reports.
+
 ### Added — Phase 4c (backup, restore & bulk configuration)
 - `GET /api/v1/devices/:id/config/export` — download a device config snapshot (JSON).
 - `POST /api/v1/devices/:id/config/import` — restore protocols/syslog/routes from a
