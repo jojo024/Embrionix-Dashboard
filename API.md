@@ -264,6 +264,41 @@ Each section is best-effort and omitted if the device type does not implement it
 
 **Response 503** if the device is unreachable.
 
+## Configuration writes & device actions (Phase 4b)
+
+All writes proxy a PUT to the device and are recorded in the audit log
+(`GET /api/v1/audit`). Inputs are validated server-side (IPv4 / CIDR / port
+range). A device-side failure returns **502** with the error and the audit entry.
+
+### `PUT /api/v1/devices/:id/config/network`
+Writes `/self/ipconfig`. **The device reboots to apply.** Body: `NetworkUpdate`
+(`ip_addr`, `subnet_mask`, `gateway`, `hostname`, `port`, `dhcp_enable`,
+`ctl_vlan_id`, `ctl_vlan_pcp`, `ctl_vlan_enable`). Static IP fields are required
+unless `dhcp_enable` is `"1"`.
+
+### `PUT /api/v1/devices/:id/config/protocols`
+Writes `/self/protocols` (`mdns_enable`, `ember_server_port`, `sap_announcement_enable`).
+
+### `PUT /api/v1/devices/:id/config/syslog`
+Writes `/self/syslog`. Body: `{ "server": "192.168.3.10", "port": 514, "enable": true, "monitoring": {...} }`.
+
+### `PUT /api/v1/devices/:id/config/routes`
+Writes `/self/static_route`. Body: `{ "routes": [ { "destination": "192.168.5.0/24", "gateway": "192.168.1.1" } ] }` (max 5).
+
+### `POST /api/v1/devices/:id/reboot`
+Reboots the device (`/self/system` `reboot=1`).
+
+### `POST /api/v1/devices/:id/config-reset`
+Resets configuration (`/self/system`). Body: `{ "scope": "flows" | "application" | "generic" | "system" }`. **Irreversible; the device reboots.**
+
+### `GET /api/v1/audit`
+Audit log of config writes / actions, newest first. Optional `device` and `limit`.
+
+**Response 200**
+```json
+{ "events": [ { "id": 7, "device_id": "uuid", "device_name": "EM6-MCR-01", "action": "config.network", "detail": "network: dhcp=0 ip=192.168.1.50 ...", "success": true, "message": "", "created_at": "2026-06-16T15:00:00Z" } ], "total": 1 }
+```
+
 ### `GET /api/v1/devices/:id/reachability`
 
 Check reachability of Red and Blue management interfaces independently.
