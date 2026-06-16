@@ -6,6 +6,7 @@ import (
 	"github.com/embrionix/dashboard/internal/api/handlers"
 	"github.com/embrionix/dashboard/internal/api/middleware"
 	"github.com/embrionix/dashboard/internal/config"
+	"github.com/embrionix/dashboard/internal/models"
 	"github.com/embrionix/dashboard/internal/repositories"
 	"github.com/embrionix/dashboard/internal/services"
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,8 @@ func NewRouter(
 	deviceSvc *services.DeviceService,
 	pollingSvc *services.PollingService,
 	pollRepo *repositories.PollRepository,
+	authSvc *services.AuthService,
+	userRepo *repositories.UserRepository,
 ) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	r := gin.New()
@@ -37,48 +40,57 @@ func NewRouter(
 	configHandler := handlers.NewConfigHandler(cfg)
 	configWriteHandler := handlers.NewConfigWriteHandler(deviceSvc, pollRepo, cfg.Polling.TimeoutSeconds)
 	backupHandler := handlers.NewBackupHandler(deviceSvc, pollRepo, configWriteHandler, cfg.Polling.TimeoutSeconds)
+	authHandler := handlers.NewAuthHandler(authSvc, userRepo)
 
 	v1 := r.Group("/api/v1")
-	{
-		// Devices CRUD
-		v1.GET("/devices", deviceHandler.ListDevices)
-		v1.POST("/devices", deviceHandler.CreateDevice)
-		v1.GET("/devices/:id", deviceHandler.GetDevice)
-		v1.PUT("/devices/:id", deviceHandler.UpdateDevice)
-		v1.DELETE("/devices/:id", deviceHandler.DeleteDevice)
 
-		// Monitoring
-		v1.GET("/devices/:id/history", monHandler.GetDeviceHistory)
-		v1.GET("/devices/:id/history.csv", monHandler.ExportDeviceHistoryCSV)
-		v1.POST("/devices/:id/poll", monHandler.PollDeviceNow)
-		v1.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
-		v1.GET("/devices/:id/config", monHandler.GetDeviceConfig)
+	// Public: login (no auth required).
+	v1.POST("/auth/login", authHandler.Login)
 
-		// Configuration writes + device actions (Phase 4b) — audited
-		v1.PUT("/devices/:id/config/network", configWriteHandler.UpdateNetwork)
-		v1.PUT("/devices/:id/config/protocols", configWriteHandler.UpdateProtocols)
-		v1.PUT("/devices/:id/config/syslog", configWriteHandler.UpdateSyslog)
-		v1.PUT("/devices/:id/config/routes", configWriteHandler.UpdateRoutes)
-		v1.POST("/devices/:id/reboot", configWriteHandler.Reboot)
-		v1.POST("/devices/:id/config-reset", configWriteHandler.ConfigReset)
-		v1.GET("/audit", configWriteHandler.GetAuditLog)
+	// read = authenticated, any role (viewer+). When auth is disabled the
+	// Authenticate middleware grants an implicit admin so nothing changes.
+	read := v1.Group("", middleware.Authenticate(authSvc))
+	// write = operator or admin. admin = admin only (user management).
+	write := v1.Group("", middleware.Authenticate(authSvc), middleware.RequireRole(models.RoleOperator))
+	admin := v1.Group("", middleware.Authenticate(authSvc), middleware.RequireRole(models.RoleAdmin))
 
-		// Backup / restore / bulk (Phase 4c)
-		v1.GET("/devices/:id/config/export", backupHandler.ExportDeviceConfig)
-		v1.POST("/devices/:id/config/import", backupHandler.ImportDeviceConfig)
-		v1.GET("/backup", backupHandler.BackupDatabase)
-		v1.POST("/bulk/config", backupHandler.BulkConfig)
+	// --- Reads (viewer+) ---
+	read.GET("/auth/me", authHandler.Me)
+	read.GET("/devices", deviceHandler.ListDevices)
+	read.GET("/devices/:id", deviceHandler.GetDevice)
+	read.GET("/devices/:id/history", monHandler.GetDeviceHistory)
+	read.GET("/devices/:id/history.csv", monHandler.ExportDeviceHistoryCSV)
+	read.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
+	read.GET("/devices/:id/config", monHandler.GetDeviceConfig)
+	read.GET("/devices/:id/config/export", backupHandler.ExportDeviceConfig)
+	read.GET("/audit", configWriteHandler.GetAuditLog)
+	read.GET("/summary", deviceHandler.GetDeviceSummary)
+	read.GET("/alarms", deviceHandler.GetFleetAlarms)
+	read.GET("/alerts", monHandler.GetAlertHistory)
+	read.GET("/settings/:key", settingsHandler.GetSetting)
+	read.GET("/config", configHandler.GetConfig)
 
-		// Dashboard summary + fleet-wide alarms + alert history
-		v1.GET("/summary", deviceHandler.GetDeviceSummary)
-		v1.GET("/alarms", deviceHandler.GetFleetAlarms)
-		v1.GET("/alerts", monHandler.GetAlertHistory)
+	// --- Writes & device actions (operator+) ---
+	write.POST("/devices", deviceHandler.CreateDevice)
+	write.PUT("/devices/:id", deviceHandler.UpdateDevice)
+	write.DELETE("/devices/:id", deviceHandler.DeleteDevice)
+	write.POST("/devices/:id/poll", monHandler.PollDeviceNow)
+	write.PUT("/devices/:id/config/network", configWriteHandler.UpdateNetwork)
+	write.PUT("/devices/:id/config/protocols", configWriteHandler.UpdateProtocols)
+	write.PUT("/devices/:id/config/syslog", configWriteHandler.UpdateSyslog)
+	write.PUT("/devices/:id/config/routes", configWriteHandler.UpdateRoutes)
+	write.POST("/devices/:id/reboot", configWriteHandler.Reboot)
+	write.POST("/devices/:id/config-reset", configWriteHandler.ConfigReset)
+	write.POST("/devices/:id/config/import", backupHandler.ImportDeviceConfig)
+	write.POST("/bulk/config", backupHandler.BulkConfig)
+	write.GET("/backup", backupHandler.BackupDatabase) // full DB export → operator+
+	write.PUT("/settings/:key", settingsHandler.SetSetting)
 
-		// Settings + effective runtime config
-		v1.GET("/settings/:key", settingsHandler.GetSetting)
-		v1.PUT("/settings/:key", settingsHandler.SetSetting)
-		v1.GET("/config", configHandler.GetConfig)
-	}
+	// --- User management (admin only) ---
+	admin.GET("/users", authHandler.ListUsers)
+	admin.POST("/users", authHandler.CreateUser)
+	admin.PUT("/users/:id", authHandler.UpdateUser)
+	admin.DELETE("/users/:id", authHandler.DeleteUser)
 
 	return r
 }

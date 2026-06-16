@@ -26,6 +26,14 @@ alerting:
     - critical
     - offline
 
+auth:
+  enabled: false                 # OFF by default — the dashboard runs with no login.
+  jwt_secret: ""                 # REQUIRED when enabled (set a long random string / EMB_AUTH_JWT_SECRET)
+  token_ttl_hours: 12            # login token lifetime
+  admin_username: "admin"        # seeded on first start when enabled
+  admin_password: ""             # blank → a random password is generated and logged once
+  api_key: ""                    # optional static key (X-API-Key header, admin-equivalent) for integrations
+
 cors:
   allowed_origins:
     - "http://localhost:5173"
