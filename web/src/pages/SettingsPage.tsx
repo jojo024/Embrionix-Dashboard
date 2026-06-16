@@ -1,18 +1,56 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Server, Clock, Download, Info, ChevronRight } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Server, Clock, Bell, Download, Info, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
+import { useQuery } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
 import { api } from '../api/client'
 
-type Tab = 'devices' | 'polling' | 'backup' | 'about'
+type Tab = 'devices' | 'polling' | 'alerting' | 'backup' | 'about'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'devices', label: 'Device Management', icon: Server },
   { id: 'polling', label: 'Polling Configuration', icon: Clock },
+  { id: 'alerting', label: 'Alerting', icon: Bell },
   { id: 'backup', label: 'Backup & Restore', icon: Download },
   { id: 'about', label: 'About', icon: Info },
 ]
+
+function AlertingSettings() {
+  const { data: config, isLoading } = useQuery({ queryKey: ['config'], queryFn: () => api.getConfig() })
+
+  if (isLoading) return <div className="text-sm text-slate-500">Loading…</div>
+  if (!config) return <div className="text-sm text-slate-500">Configuration unavailable.</div>
+
+  const a = config.alerting
+  const rows: [string, string][] = [
+    ['Temperature warning', `≥ ${a.temp_warning_c} °C`],
+    ['Temperature critical', `≥ ${a.temp_critical_c} °C`],
+    ['Slow-response warning', `≥ ${a.response_warning_ms} ms`],
+    ['Webhook notifications', a.webhook_enabled ? 'Enabled' : 'Disabled'],
+    ['Notify on transition to', a.webhook_on.join(', ') || '—'],
+  ]
+
+  return (
+    <div className="max-w-md space-y-4">
+      <div className="card divide-y divide-surface-800">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between px-4 py-3">
+            <span className="text-xs text-slate-500">{label}</span>
+            <span className="text-xs font-mono text-slate-300">{value}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">
+        Alerting thresholds and the notification webhook are set in
+        {' '}<span className="font-mono text-slate-400">configs/config.yaml</span>{' '}
+        (or <span className="font-mono text-slate-400">EMB_ALERTING_*</span> environment
+        variables) and applied on startup. Status transitions are recorded in each
+        device's Logs tab; configured destinations also receive a webhook.
+      </p>
+    </div>
+  )
+}
 
 function PollingSettings() {
   const [interval, setIntervalVal] = useState('30')
@@ -91,7 +129,7 @@ function AboutPage() {
           <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">E</div>
           <div>
             <div className="font-semibold text-slate-100">Embrionix Dashboard</div>
-            <div className="text-xs text-slate-500">Version 0.1.0 — Phase 1</div>
+            <div className="text-xs text-slate-500">Version 0.3.0 — Phase 3</div>
           </div>
         </div>
         <div className="border-t border-surface-700 pt-3 space-y-2 text-xs text-slate-400">
@@ -112,18 +150,20 @@ function AboutPage() {
       <div className="card p-4">
         <h3 className="text-sm font-medium text-slate-100 mb-3">Roadmap</h3>
         {[
-          ['Phase 1', 'Foundation — inventory, basic dashboard', 'in_progress'],
-          ['Phase 2', 'Monitoring — polling engine, reachability, SFP', 'pending'],
-          ['Phase 3', 'Advanced Monitoring — history, graphing, alerts', 'pending'],
+          ['Phase 1', 'Foundation — inventory, basic dashboard', 'done'],
+          ['Phase 2', 'Monitoring — full EM6 telemetry, reachability, SFP', 'done'],
+          ['Phase 3', 'Advanced Monitoring — sparklines, alerts, webhooks, CSV', 'in_progress'],
           ['Phase 4', 'Configuration Management — backup/restore', 'pending'],
           ['Phase 5', 'Enterprise — RBAC, audit logs, notifications', 'pending'],
         ].map(([phase, desc, status]) => (
           <div key={phase} className="flex items-start gap-3 py-2 border-b border-surface-800 last:border-0">
             <span className={clsx(
               'text-xs px-1.5 py-0.5 rounded font-mono shrink-0 mt-0.5',
-              status === 'in_progress' ? 'bg-brand-600/20 text-brand-400' : 'bg-surface-800 text-slate-500',
+              status === 'in_progress' ? 'bg-brand-600/20 text-brand-400'
+                : status === 'done' ? 'bg-emerald-500/15 text-emerald-400'
+                : 'bg-surface-800 text-slate-500',
             )}>
-              {status === 'in_progress' ? '●' : '○'}
+              {status === 'done' ? '✓' : status === 'in_progress' ? '●' : '○'}
             </span>
             <div>
               <div className="text-xs font-medium text-slate-300">{phase}</div>
@@ -136,11 +176,11 @@ function AboutPage() {
   )
 }
 
-interface Props {
-  tab?: Tab
-}
+const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'backup', 'about']
 
-export function SettingsPage({ tab: initialTab = 'devices' }: Props) {
+export function SettingsPage() {
+  const { tab } = useParams<{ tab?: string }>()
+  const initialTab = (tab && VALID_TABS.includes(tab as Tab) ? tab : 'devices') as Tab
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const navigate = useNavigate()
 
@@ -183,6 +223,7 @@ export function SettingsPage({ tab: initialTab = 'devices' }: Props) {
         <div className="flex-1 min-w-0">
           {activeTab === 'devices'  && <DevicesPage />}
           {activeTab === 'polling'  && <PollingSettings />}
+          {activeTab === 'alerting' && <AlertingSettings />}
           {activeTab === 'backup'   && <BackupRestore />}
           {activeTab === 'about'    && <AboutPage />}
         </div>

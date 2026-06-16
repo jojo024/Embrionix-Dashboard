@@ -1,6 +1,8 @@
-import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse } from '../types/device';
+import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig } from '../types/device';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
+
+export const API_BASE = BASE;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -39,6 +41,12 @@ export const api = {
   getFleetAlarms: (): Promise<FleetAlarmsResponse> =>
     request('/api/v1/alarms'),
 
+  getAlertHistory: (deviceId?: string, limit = 100): Promise<AlertHistoryResponse> =>
+    request(`/api/v1/alerts?limit=${limit}${deviceId ? `&device=${deviceId}` : ''}`),
+
+  historyCsvUrl: (deviceId: string): string =>
+    `${BASE}/api/v1/devices/${deviceId}/history.csv`,
+
   getDeviceHistory: (id: string, limit = 100): Promise<PollResult[]> =>
     request(`/api/v1/devices/${id}/history?limit=${limit}`),
 
@@ -49,6 +57,9 @@ export const api = {
     request(`/api/v1/devices/${id}/reachability`),
 
   // ---- Settings ----
+  getConfig: (): Promise<RuntimeConfig> =>
+    request('/api/v1/config'),
+
   getSetting: (key: string): Promise<{ key: string; value: string }> =>
     request(`/api/v1/settings/${key}`),
 
