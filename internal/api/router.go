@@ -34,6 +34,7 @@ func NewRouter(
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc, pollingSvc)
 	monHandler := handlers.NewMonitoringHandler(deviceSvc, pollingSvc, pollRepo, cfg.Polling.TimeoutSeconds)
 	settingsHandler := handlers.NewSettingsHandler(pollRepo)
+	configHandler := handlers.NewConfigHandler(cfg)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -46,16 +47,19 @@ func NewRouter(
 
 		// Monitoring
 		v1.GET("/devices/:id/history", monHandler.GetDeviceHistory)
+		v1.GET("/devices/:id/history.csv", monHandler.ExportDeviceHistoryCSV)
 		v1.POST("/devices/:id/poll", monHandler.PollDeviceNow)
 		v1.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
 
-		// Dashboard summary + fleet-wide alarms
+		// Dashboard summary + fleet-wide alarms + alert history
 		v1.GET("/summary", deviceHandler.GetDeviceSummary)
 		v1.GET("/alarms", deviceHandler.GetFleetAlarms)
+		v1.GET("/alerts", monHandler.GetAlertHistory)
 
-		// Settings
+		// Settings + effective runtime config
 		v1.GET("/settings/:key", settingsHandler.GetSetting)
 		v1.PUT("/settings/:key", settingsHandler.SetSetting)
+		v1.GET("/config", configHandler.GetConfig)
 	}
 
 	return r

@@ -12,7 +12,17 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Polling  PollingConfig  `mapstructure:"polling"`
+	Alerting AlertingConfig `mapstructure:"alerting"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+}
+
+// AlertingConfig holds tunable health thresholds and notification settings.
+type AlertingConfig struct {
+	TempWarningC     float64  `mapstructure:"temp_warning_c"`
+	TempCriticalC    float64  `mapstructure:"temp_critical_c"`
+	ResponseWarnMs   int64    `mapstructure:"response_warning_ms"`
+	WebhookURL       string   `mapstructure:"webhook_url"`
+	WebhookOn        []string `mapstructure:"webhook_on"` // statuses whose entry fires a webhook
 }
 
 type ServerConfig struct {
@@ -57,6 +67,11 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("polling.retry_count", 2)
 	v.SetDefault("polling.icmp_enabled", true)
 	v.SetDefault("polling.history_retention_days", 30)
+	v.SetDefault("alerting.temp_warning_c", 70)
+	v.SetDefault("alerting.temp_critical_c", 75)
+	v.SetDefault("alerting.response_warning_ms", 2000)
+	v.SetDefault("alerting.webhook_url", "")
+	v.SetDefault("alerting.webhook_on", []string{"critical", "offline"})
 	v.SetDefault("cors.allowed_origins", []string{"http://localhost:5173"})
 
 	v.SetEnvPrefix("EMB")

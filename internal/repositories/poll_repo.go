@@ -49,6 +49,31 @@ func (r *PollRepository) PruneOlderThan(age time.Duration) error {
 	return r.db.Where("polled_at < ?", cutoff).Delete(&models.PollResult{}).Error
 }
 
+// SaveAlert persists a status-transition alert event.
+func (r *PollRepository) SaveAlert(event *models.AlertEvent) error {
+	return r.db.Create(event).Error
+}
+
+// FindAlerts returns recent alert events, newest first. If deviceID is empty,
+// alerts across all devices are returned.
+func (r *PollRepository) FindAlerts(deviceID string, limit int) ([]models.AlertEvent, error) {
+	var events []models.AlertEvent
+	q := r.db.Order("created_at desc")
+	if deviceID != "" {
+		q = q.Where("device_id = ?", deviceID)
+	}
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	return events, q.Find(&events).Error
+}
+
+// PruneAlertsOlderThan deletes alert events older than the given duration.
+func (r *PollRepository) PruneAlertsOlderThan(age time.Duration) error {
+	cutoff := time.Now().Add(-age)
+	return r.db.Where("created_at < ?", cutoff).Delete(&models.AlertEvent{}).Error
+}
+
 func (r *PollRepository) GetSetting(key string) (string, error) {
 	var s models.AppSetting
 	err := r.db.Where("key = ?", key).First(&s).Error
