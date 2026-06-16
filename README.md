@@ -147,6 +147,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale.
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System design and decisions |
 | [API.md](API.md) | REST API reference |
 | [ROADMAP.md](ROADMAP.md) | Phased feature plan |
+| [PERFORMANCE.md](PERFORMANCE.md) | Network/device impact analysis & tuning |
 | [INSTALLATION.md](INSTALLATION.md) | Detailed install guide |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |

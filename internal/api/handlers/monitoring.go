@@ -91,7 +91,7 @@ func (h *MonitoringHandler) PollDeviceNow(c *gin.Context) {
 	defer cancel()
 
 	client := services.NewEmsfpClient(ip, "80", h.pollCfg.TimeoutSeconds)
-	data, err := client.Poll(ctx)
+	data, err := client.Poll(ctx, true, nil) // on-demand poll is always a full poll
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"reachable": false,

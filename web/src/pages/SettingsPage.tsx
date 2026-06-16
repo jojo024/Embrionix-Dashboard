@@ -7,7 +7,7 @@ import { DevicesPage } from './DevicesPage'
 import { useDevices } from '../hooks/useDevices'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
-import { api } from '../api/client'
+import { api, downloadWithAuth } from '../api/client'
 import type { Role } from '../types/device'
 
 type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'users' | 'about'
@@ -294,6 +294,10 @@ function PollingSettings() {
 }
 
 function BackupRestore() {
+  const { notify } = useToast()
+  const dl = (path: string, name: string) =>
+    downloadWithAuth(path, name).catch(e => notify('error', `Download failed: ${(e as Error).message}`))
+
   return (
     <div className="max-w-md space-y-4">
       <div className="card p-4">
@@ -303,9 +307,19 @@ function BackupRestore() {
           poll history, alerts, and audit log) via SQLite <span className="font-mono">VACUUM INTO</span> —
           safe to run while the server is live.
         </p>
-        <a className="btn-secondary" href={api.databaseBackupUrl()} download>
+        <button className="btn-secondary" onClick={() => dl('/api/v1/backup', 'embrionix.db')}>
           <Download className="w-4 h-4" /> Export Database
-        </a>
+        </button>
+      </div>
+      <div className="card p-4">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Export Ansible Inventory</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Download the device inventory as Ansible dynamic-inventory JSON
+          (group <span className="font-mono">emsfp</span>, with per-host model, location, and IPs).
+        </p>
+        <button className="btn-secondary" onClick={() => dl('/api/v1/export/ansible', 'embrionix-inventory.json')}>
+          <Download className="w-4 h-4" /> Export Inventory
+        </button>
       </div>
       <div className="card p-4">
         <h3 className="text-sm font-medium text-slate-100 mb-2">Restore Database</h3>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useApiStatus } from '../hooks/useApiStatus';
 import { useAuth } from '../contexts/AuthContext';
+import { KeyboardShortcuts } from './KeyboardShortcuts';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -109,6 +110,8 @@ export function Layout({ children }: Props) {
           {children}
         </main>
       </div>
+
+      <KeyboardShortcuts />
     </div>
   );
 }
