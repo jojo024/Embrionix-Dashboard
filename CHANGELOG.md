@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed — Issue #2: Device add validation & auto-fetch
+- **Required management IPs**: When creating a device, at least one of Red or Blue
+  management IP is now required (enforced both server and client side).
+- **Auto-fetch firmware version**: When adding a device, the firmware version
+  (`current_version`) is automatically fetched from the device via the API and
+  pre-populated in the form (client-side auto-detect on IP change, server-side
+  fallback on creation). If the device is unreachable at registration time, the
+  field remains editable.
+- Front-end shows a loading spinner while fetching, and the firmware field is
+  read-only during creation (but editable when editing an existing device).
+
 ### Added — scheduled reports & mobile layout
 - **Fleet report**: on-demand PDF (`GET /api/v1/report.pdf`) summarising fleet
   status, active alarms, and recent status changes — pure-Go PDF, no system deps.
