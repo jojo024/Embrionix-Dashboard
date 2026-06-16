@@ -40,10 +40,28 @@ export function useFleetAlarms() {
   });
 }
 
+export function useAlertHistory(deviceId?: string, limit = 100) {
+  return useQuery({
+    queryKey: ['alert-history', deviceId ?? 'all', limit],
+    queryFn: () => api.getAlertHistory(deviceId, limit),
+    refetchInterval: 30_000,
+  });
+}
+
 export function useDeviceHistory(id: string) {
   return useQuery({
     queryKey: ['device-history', id],
     queryFn: () => api.getDeviceHistory(id, 200),
+    enabled: !!id,
+    refetchInterval: 60_000,
+  });
+}
+
+// Small recent-history slice for device-card sparklines.
+export function useDeviceSparkline(id: string) {
+  return useQuery({
+    queryKey: ['device-sparkline', id],
+    queryFn: () => api.getDeviceHistory(id, 24),
     enabled: !!id,
     refetchInterval: 60_000,
   });

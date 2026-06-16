@@ -233,3 +233,34 @@ export interface FleetAlarmsResponse {
   alarms: FleetAlarm[];
   total: number;
 }
+
+export interface AlertEvent {
+  id: number;
+  device_id: string;
+  device_name: string;
+  from_status: DeviceStatus;
+  to_status: DeviceStatus;
+  message: string;
+  created_at: string;
+}
+
+export interface AlertHistoryResponse {
+  alerts: AlertEvent[];
+  total: number;
+}
+
+export interface RuntimeConfig {
+  polling: {
+    interval_seconds: number;
+    timeout_seconds: number;
+    icmp_enabled: boolean;
+    history_retention_days: number;
+  };
+  alerting: {
+    temp_warning_c: number;
+    temp_critical_c: number;
+    response_warning_ms: number;
+    webhook_enabled: boolean;
+    webhook_on: string[];
+  };
+}

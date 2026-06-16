@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, RefreshCw, Thermometer, Wind, Cpu, Wifi, WifiOff,
-  Clock, AlertTriangle, Activity, Server, Radio, Settings2
+  Clock, AlertTriangle, Activity, Server, Radio, Settings2, Download
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts'
-import { useDevice, useDeviceHistory, usePollDevice } from '../hooks/useDevices'
+import { useDevice, useDeviceHistory, usePollDevice, useAlertHistory } from '../hooks/useDevices'
+import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToast } from '../components/Toast'
 import { formatDate, formatRelativeTime } from '../utils/time'
@@ -385,6 +386,18 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* Export */}
+      <div className="flex justify-end">
+        <a
+          href={api.historyCsvUrl(deviceId)}
+          className="btn-secondary"
+          download
+        >
+          <Download className="w-4 h-4" />
+          Export CSV
+        </a>
+      </div>
+
       {/* Temperature chart */}
       <div className="card p-4">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Core Temperature (°C)</h3>
@@ -498,21 +511,59 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
   )
 }
 
+const STATUS_TEXT: Record<string, string> = {
+  online: 'text-emerald-400',
+  warning: 'text-amber-400',
+  critical: 'text-red-400',
+  offline: 'text-slate-400',
+  unknown: 'text-slate-500',
+}
+
 function LogsTab({ device }: { device: ReturnType<typeof useDevice>['data'] }) {
   const pd = device?.polling_data
+  const { data: alertData } = useAlertHistory(device?.id)
+  const alerts = alertData?.alerts ?? []
+
   return (
-    <div className="card p-4 space-y-2">
-      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Alarms & Events</h3>
-      {pd?.alarms?.length ? (
-        pd.alarms.map((a, i) => (
-          <div key={i} className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-            <span className="text-xs font-mono text-amber-300">{a}</span>
+    <div className="space-y-4">
+      {/* Active alarms */}
+      <div className="card p-4 space-y-2">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Active Alarms</h3>
+        {pd?.alarms?.length ? (
+          pd.alarms.map((a, i) => (
+            <div key={i} className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+              <span className="text-xs font-mono text-amber-300">{a}</span>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-slate-500">No active alarms.</p>
+        )}
+      </div>
+
+      {/* Status-transition history */}
+      <div className="card overflow-hidden">
+        <div className="px-4 py-3 border-b border-surface-700">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status History</h3>
+        </div>
+        {alerts.length === 0 ? (
+          <p className="text-xs text-slate-500 p-4">No status changes recorded yet.</p>
+        ) : (
+          <div className="divide-y divide-surface-800 max-h-96 overflow-y-auto">
+            {alerts.map(ev => (
+              <div key={ev.id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
+                <span className="text-slate-500 font-mono shrink-0 w-32">{formatDate(ev.created_at)}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className={STATUS_TEXT[ev.from_status]}>{ev.from_status}</span>
+                  <span className="text-slate-600">→</span>
+                  <span className={STATUS_TEXT[ev.to_status]}>{ev.to_status}</span>
+                </span>
+                <span className="text-slate-400 truncate">{ev.message}</span>
+              </div>
+            ))}
           </div>
-        ))
-      ) : (
-        <p className="text-xs text-slate-500">No active alarms.</p>
-      )}
+        )}
+      </div>
     </div>
   )
 }
