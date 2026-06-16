@@ -5,6 +5,8 @@ import { useDevices, useSummary } from '../hooks/useDevices';
 import { DeviceCard } from '../components/DeviceCard';
 import { DeviceTable } from '../components/DeviceTable';
 import { StatusBadge } from '../components/StatusBadge';
+import { FleetAlarmPanel } from '../components/FleetAlarmPanel';
+import { RefreshCountdown } from '../components/RefreshCountdown';
 import type { DeviceStatus } from '../types/device';
 
 function SummaryCard({ label, value, status, icon: Icon }: {
@@ -46,7 +48,7 @@ type Filter = DeviceStatus | 'all';
 export function Dashboard() {
   const [view, setView] = useState<ViewMode>('card');
   const [filter, setFilter] = useState<Filter>('all');
-  const { data: deviceData, isLoading, refetch, isFetching } = useDevices();
+  const { data: deviceData, isLoading, refetch, isFetching, dataUpdatedAt } = useDevices();
   const { data: summary } = useSummary();
 
   const devices = deviceData?.devices ?? [];
@@ -62,14 +64,17 @@ export function Dashboard() {
             {deviceData?.total ?? 0} devices registered
           </p>
         </div>
-        <button
-          className="btn-secondary"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <RefreshCountdown intervalSeconds={30} lastUpdated={dataUpdatedAt} isFetching={isFetching} />
+          <button
+            className="btn-secondary"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -81,6 +86,9 @@ export function Dashboard() {
           <SummaryCard label="Critical" value={summary.critical} status="critical" icon={AlertTriangle} />
         </div>
       )}
+
+      {/* Fleet-wide alarm panel */}
+      <FleetAlarmPanel />
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">

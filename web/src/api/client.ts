@@ -1,4 +1,4 @@
-import type { Device, DeviceListResponse, DashboardSummary, PollResult } from '../types/device';
+import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse } from '../types/device';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
 
@@ -35,6 +35,9 @@ export const api = {
   // ---- Monitoring ----
   getSummary: (): Promise<DashboardSummary> =>
     request('/api/v1/summary'),
+
+  getFleetAlarms: (): Promise<FleetAlarmsResponse> =>
+    request('/api/v1/alarms'),
 
   getDeviceHistory: (id: string, limit = 100): Promise<PollResult[]> =>
     request(`/api/v1/devices/${id}/history?limit=${limit}`),
