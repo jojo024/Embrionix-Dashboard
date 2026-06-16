@@ -5,6 +5,7 @@ import { clsx } from 'clsx'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
 import { useDevices } from '../hooks/useDevices'
+import { useVersion } from '../hooks/useUpdate'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { api, downloadWithAuth } from '../api/client'
@@ -346,6 +347,7 @@ function BackupRestore() {
 }
 
 function AboutPage() {
+  const { data: ver } = useVersion()
   return (
     <div className="max-w-md space-y-4">
       <div className="card p-5 space-y-3">
@@ -353,7 +355,12 @@ function AboutPage() {
           <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">E</div>
           <div>
             <div className="font-semibold text-slate-100">Embrionix Dashboard</div>
-            <div className="text-xs text-slate-500">Version 0.5.0 — Phase 5</div>
+            <div className="text-xs text-slate-500">
+              Version {ver?.current_version ?? '—'}
+              {ver?.update_available && (
+                <span className="ml-2 text-brand-400">· update {ver.latest_version} available</span>
+              )}
+            </div>
           </div>
         </div>
         <div className="border-t border-surface-700 pt-3 space-y-2 text-xs text-slate-400">

@@ -12,6 +12,11 @@ web/dist/
 web/.env.local
 web/.env.*.local
 
+# Embedded UI: ignore the built frontend copied in for `go:embed`, but keep the
+# committed placeholder so a backend-only `go build` always has something to embed.
+internal/webui/dist/*
+!internal/webui/dist/.gitkeep
+
 # ── Runtime data ──────────────────────────────────────────────────────────────
 /data/
 /logs/

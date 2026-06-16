@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -71,6 +72,23 @@ func seedAdmin(userRepo *repositories.UserRepository, authCfg config.AuthConfig)
 	return nil
 }
 
+// listenWithRetry binds addr, retrying for up to timeout. This lets a freshly
+// relaunched instance (after a self-update) wait for the old process to release
+// the port instead of failing immediately.
+func listenWithRetry(addr string, timeout time.Duration) (net.Listener, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		ln, err := net.Listen("tcp", addr)
+		if err == nil {
+			return ln, nil
+		}
+		if time.Now().After(deadline) {
+			return nil, err
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
 func main() {
 	cfgPath := "configs/config.yaml"
 	if len(os.Args) > 1 {
@@ -105,6 +123,7 @@ func main() {
 	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling, cfg.Alerting)
 	authSvc := services.NewAuthService(userRepo, cfg.Auth)
 	reportSvc := services.NewReportService(deviceRepo, pollRepo, pollingSvc, pollingSvc.Notifier())
+	updateSvc := services.NewUpdateService(cfg.Updates)
 
 	if cfg.Auth.Enabled {
 		if cfg.Auth.JWTSecret == "" {
@@ -119,6 +138,11 @@ func main() {
 	pollingSvc.StartPruning()
 	defer pollingSvc.Stop()
 
+	// Background update checker (polls GitHub Releases; self-update is admin-triggered).
+	updateCtx, updateCancel := context.WithCancel(context.Background())
+	defer updateCancel()
+	updateSvc.StartChecker(updateCtx)
+
 	// Scheduled fleet report (delivers a text summary to the alerting webhook).
 	if cfg.Reports.Enabled {
 		c := cron.New()
@@ -130,7 +154,7 @@ func main() {
 		logger.Info("scheduled reports enabled", zap.String("cron", cfg.Reports.Cron))
 	}
 
-	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo, authSvc, userRepo, reportSvc)
+	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo, authSvc, userRepo, reportSvc, updateSvc)
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Address(),
@@ -140,9 +164,15 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Bind with a short retry so a self-update relaunch can start before the old
+	// process has fully released the port.
+	ln, err := listenWithRetry(cfg.Server.Address(), 15*time.Second)
+	if err != nil {
+		logger.Fatal("failed to bind address", zap.String("address", cfg.Server.Address()), zap.Error(err))
+	}
 	go func() {
 		logger.Info("server starting", zap.String("address", cfg.Server.Address()))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("server error", zap.Error(err))
 		}
 	}()

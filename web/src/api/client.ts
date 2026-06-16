@@ -1,6 +1,9 @@
 import type { Device, DeviceListResponse, DashboardSummary, PollResult, FleetAlarmsResponse, AlertHistoryResponse, RuntimeConfig, DeviceConfig, NetworkUpdate, SyslogUpdate, ProtocolsConfig, StaticRoute, ConfigResetScope, AuditLogResponse, AuditEvent, AuthMe, LoginResponse, User, Role } from '../types/device';
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
+// Same-origin by default: in production the binary serves the UI + API together,
+// and the Vite dev server proxies /api and /health to the backend. Override with
+// VITE_API_URL only when the API runs on a different origin.
+const BASE = import.meta.env.VITE_API_URL ?? '';
 
 export const API_BASE = BASE;
 
@@ -166,7 +169,28 @@ export const api = {
   deleteUser: (id: number): Promise<void> =>
     request(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
+  // ---- Updates ----
+  getVersion: (): Promise<UpdateStatus> =>
+    request('/api/v1/version'),
+
+  checkUpdate: (): Promise<UpdateStatus> =>
+    request('/api/v1/update/check', { method: 'POST' }),
+
+  applyUpdate: (): Promise<{ status: string; message: string }> =>
+    request('/api/v1/update', { method: 'POST' }),
+
   // ---- Health ----
-  health: (): Promise<{ status: string; uptime: string }> =>
+  health: (): Promise<{ status: string; version: string; uptime: string }> =>
     request('/health'),
 };
+
+export interface UpdateStatus {
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+  release_url: string;
+  release_notes: string;
+  checked_at: string;
+  enabled: boolean;
+  error?: string;
+}
