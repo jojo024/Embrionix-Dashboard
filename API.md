@@ -1,6 +1,6 @@
 # REST API Reference
 
-Base URL: `http://localhost:8080`
+Base URL: `http://localhost:8081` (configurable via `server.port`)
 
 All responses are JSON. All request bodies must include `Content-Type: application/json`.
 
@@ -43,6 +43,7 @@ Returns all devices enriched with live polling data.
       "status": "online",
       "last_polled_at": "2026-06-16T14:21:55Z",
       "reachable_red": true,
+      "reachable_blue": false,
       "polling_data": { ... }
     }
   ],
@@ -51,6 +52,15 @@ Returns all devices enriched with live polling data.
 ```
 
 `status` is one of: `online` | `warning` | `critical` | `offline` | `unknown`
+
+`reachable_red` / `reachable_blue` reflect the independent L4 (TCP) probe of each
+management path when `polling.icmp_enabled` is set (see
+[Dual-path reachability](#dual-path-reachability)).
+
+The `polling_data` object is the full live snapshot collected from the EM6. See
+[EM6 endpoint coverage](#em6-endpoint-coverage) for everything it contains
+(PTP/refclk, firmware banks, licenses, ethernet counters, per-interface config,
+LLDP neighbour, media-flow telemetry, SDI, SFP DDM).
 
 ### `GET /api/v1/devices/:id`
 
@@ -114,6 +124,28 @@ Fleet-wide device counts by status.
 }
 ```
 
+### `GET /api/v1/alarms`
+
+Every active alarm across the fleet, for the dashboard alarm panel. Each entry
+is one alarm attributed to a device; unreachable devices contribute a single
+`"Device unreachable"` entry.
+
+**Response 200**
+```json
+{
+  "alarms": [
+    {
+      "device_id": "uuid",
+      "device_name": "EM6-MCR-01",
+      "status": "warning",
+      "message": "PTP not locked (coarse lock)",
+      "polled_at": "2026-06-16T14:21:55Z"
+    }
+  ],
+  "total": 1
+}
+```
+
 ### `GET /api/v1/devices/:id/history`
 
 Historical poll results for a device.
@@ -142,6 +174,10 @@ Historical poll results for a device.
     "port1_tx_power": null,
     "port1_rx_power": null,
     "port1_temp": null,
+    "ptp_locked": true,
+    "ptp_offset": 1950,
+    "reachable_red": true,
+    "reachable_blue": false,
     "error_message": ""
   }
 ]
@@ -201,17 +237,54 @@ Set an application setting.
 
 ---
 
-## emSFP Device API (proxied — Phase 4)
+## Dual-path reachability
 
-The following emSFP endpoints will be proxied through the dashboard in Phase 4 to enable configuration management. They are **not currently exposed**.
+When `polling.icmp_enabled` is `true`, every poll cycle runs an independent
+L4 (TCP-connect) probe against **both** the Red and Blue management IPs, in
+addition to the full REST poll. The results populate `reachable_red` and
+`reachable_blue` on the device and each `PollResult`.
 
-| Method | emSFP Path | Purpose |
-|--------|-----------|---------|
-| GET/PUT | `/self/ipconfig` | Network settings |
-| GET/PUT | `/self/system` | Reboot, config reset |
-| GET/PUT | `/self/syslog` | Syslog server |
-| GET | `/self/firmware` | Firmware slots |
-| GET | `/telemetry/devices` | Flow telemetry |
-| GET | `/lldp` | LLDP neighbours |
+> **Why TCP, not ICMP?** Raw ICMP echo sockets require elevated privileges on
+> Windows (and `CAP_NET_RAW` on Linux). To keep the dashboard runnable as an
+> unprivileged process, reachability uses a TCP connect to the management port,
+> which exercises the same L3 path without raw sockets. This trade-off is
+> recorded in [ISSUES.md](ISSUES.md).
+
+---
+
+## EM6 endpoint coverage
+
+The polling engine ([`emsfp_client.go`](internal/services/emsfp_client.go))
+collects health and telemetry from the EM6 REST API (base
+`http://<ip>/emsfp/node/v1`). The table below maps every documented endpoint to
+its monitoring status. "Polled" endpoints feed `polling_data`; "config-plane"
+endpoints describe media routing/configuration and are intentionally **not**
+polled in the monitoring product (rationale in [ISSUES.md](ISSUES.md)).
+
+| emSFP endpoint | Polled | Surfaced as |
+|----------------|:------:|-------------|
+| `/self/information` | ✅ | Versions, device type, platform HW |
+| `/self/ipconfig` | ✅ | Hostname, IP, MAC, DHCP |
+| `/self/system` | ✅ | Core temp, fan, voltage, uptime |
+| `/self/firmware` | ✅ | Firmware banks (slot/version/active/default) |
+| `/self/license` | ✅ | Licensed feature map |
+| `/self/diag/refclk` | ✅ | PTP lock status, offset, mean delay, counters |
+| `/self/diag/ethernet` | ✅ | Control-plane TX/RX packets + RX errors |
+| `/self/diag/common` | ✅ | Video bandwidth usage, watchdog, IPv4 drops |
+| `/self/interfaces` | ✅ | Per-interface (e1/e2) IP, gateway, DHCP, VLAN |
+| `/lldp` | ✅ | Discovered neighbour (chassis, port, TTL) |
+| `/telemetry/node` | ✅ | Health + refclk summary |
+| `/telemetry/ports` | ✅ | Per-port SFP TX/RX power, temperature |
+| `/telemetry/devices` | ✅ | Media-flow packet counters, validity |
+| `/port`, `/port/{id}` | ✅ | SFP DDM (temp, VCC, bias, TX/RX power, alarms) |
+| `/sdi` | ✅ | SDI operating bit rate |
+| `/self/protocols`, `/self/syslog`, `/self/static_route`, `/self/diag/dns` | ❌ | Config-plane (settings, not health) |
+| `/sources`, `/receivers`, `/senders`, `/flows`, `/sdp`, `/route`, `/clean_switch` | ❌ | Media routing — Phase 4 config management |
+| `/black_burst`, `/sdi_input`, `/sdi_audio`, `/sdi_output` | ❌ | Media I/O config — Phase 4 |
+
+All polled endpoints are fetched best-effort: a failure on any single endpoint
+is tolerated (the device may not implement it for its type) and does not abort
+the poll. Only `/self/information` is mandatory for a device to count as
+reachable.
 
 See `documentations/api_e+.html` for the full emSFP API reference.
