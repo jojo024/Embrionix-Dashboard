@@ -322,6 +322,17 @@ function BackupRestore() {
         </button>
       </div>
       <div className="card p-4">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Fleet Report</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Download a PDF summary of fleet status, active alarms, and recent status
+          changes. A scheduled text summary can also be delivered to the alerting
+          webhook (see <span className="font-mono">reports</span> in config).
+        </p>
+        <button className="btn-secondary" onClick={() => dl('/api/v1/report.pdf', 'embrionix-fleet-report.pdf')}>
+          <Download className="w-4 h-4" /> Download Report (PDF)
+        </button>
+      </div>
+      <div className="card p-4">
         <h3 className="text-sm font-medium text-slate-100 mb-2">Restore Database</h3>
         <p className="text-xs text-slate-500">
           To restore, stop the server and replace the database file at
@@ -411,25 +422,25 @@ export function SettingsPage() {
         <p className="text-sm text-slate-500 mt-0.5">Application and device configuration</p>
       </div>
 
-      <div className="flex gap-6">
-        {/* Sidebar nav */}
-        <nav className="w-52 shrink-0 space-y-0.5">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Sidebar nav — horizontal scroll on mobile, sidebar on desktop */}
+        <nav className="w-full lg:w-52 shrink-0 flex lg:block gap-1 lg:gap-0 lg:space-y-0.5 overflow-x-auto">
           {visibleTabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => handleTabChange(id)}
               className={clsx(
-                'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'shrink-0 lg:w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === id
                   ? 'bg-surface-700 text-slate-100'
                   : 'text-slate-400 hover:bg-surface-800 hover:text-slate-200',
               )}
             >
               <div className="flex items-center gap-2.5">
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4 shrink-0" />
                 {label}
               </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+              <ChevronRight className="w-3.5 h-3.5 opacity-40 hidden lg:block" />
             </button>
           ))}
         </nav>

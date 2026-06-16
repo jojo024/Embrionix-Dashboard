@@ -59,6 +59,10 @@ func NewPollingService(
 	}
 }
 
+// Notifier returns the alerting webhook notifier so other services (e.g. the
+// scheduled report) can reuse the same configured destination.
+func (s *PollingService) Notifier() *Notifier { return s.notifier }
+
 func (s *PollingService) Start() {
 	s.wg.Add(1)
 	go func() {

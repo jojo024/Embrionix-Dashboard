@@ -52,10 +52,19 @@ func (n *Notifier) Notify(ctx context.Context, event models.AlertEvent) {
 	text := fmt.Sprintf("[%s] %s: %s → %s — %s",
 		event.ToStatus, event.DeviceName, event.FromStatus, event.ToStatus, event.Message)
 
-	payload := map[string]interface{}{
-		"text":  text,
-		"event": event,
+	n.post(ctx, map[string]interface{}{"text": text, "event": event})
+}
+
+// NotifyText posts a plain text message to the webhook (used for scheduled
+// reports). Ignored when no webhook is configured.
+func (n *Notifier) NotifyText(ctx context.Context, text string) {
+	if !n.Enabled() {
+		return
 	}
+	n.post(ctx, map[string]interface{}{"text": text})
+}
+
+func (n *Notifier) post(ctx context.Context, payload map[string]interface{}) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		logger.Error("notifier: marshal failed", zap.Error(err))
@@ -79,8 +88,5 @@ func (n *Notifier) Notify(ctx context.Context, event models.AlertEvent) {
 		logger.Warn("notifier: webhook returned non-2xx", zap.Int("status", resp.StatusCode))
 		return
 	}
-	logger.Debug("notifier: alert delivered",
-		zap.String("device", event.DeviceName),
-		zap.String("to", string(event.ToStatus)),
-	)
+	logger.Debug("notifier: webhook delivered")
 }

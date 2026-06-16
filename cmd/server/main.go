@@ -18,6 +18,7 @@ import (
 	"github.com/embrionix/dashboard/internal/services"
 	"github.com/embrionix/dashboard/pkg/database"
 	"github.com/embrionix/dashboard/pkg/logger"
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 )
 
@@ -103,6 +104,7 @@ func main() {
 	deviceSvc := services.NewDeviceService(deviceRepo)
 	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling, cfg.Alerting)
 	authSvc := services.NewAuthService(userRepo, cfg.Auth)
+	reportSvc := services.NewReportService(deviceRepo, pollRepo, pollingSvc, pollingSvc.Notifier())
 
 	if cfg.Auth.Enabled {
 		if cfg.Auth.JWTSecret == "" {
@@ -117,7 +119,18 @@ func main() {
 	pollingSvc.StartPruning()
 	defer pollingSvc.Stop()
 
-	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo, authSvc, userRepo)
+	// Scheduled fleet report (delivers a text summary to the alerting webhook).
+	if cfg.Reports.Enabled {
+		c := cron.New()
+		if _, err := c.AddFunc(cfg.Reports.Cron, reportSvc.DeliverScheduled); err != nil {
+			logger.Fatal("invalid reports.cron expression", zap.String("cron", cfg.Reports.Cron), zap.Error(err))
+		}
+		c.Start()
+		defer c.Stop()
+		logger.Info("scheduled reports enabled", zap.String("cron", cfg.Reports.Cron))
+	}
+
+	router := api.NewRouter(cfg, deviceSvc, pollingSvc, pollRepo, authSvc, userRepo, reportSvc)
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Address(),

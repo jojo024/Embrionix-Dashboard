@@ -100,7 +100,7 @@
 - [ ] LDAP / Active Directory authentication — *deferred (see ISSUES.md)*
 - [ ] Multi-user concurrency / PostgreSQL backend — *deferred (SQLite single-writer is sufficient at current scale)*
 - [ ] Refresh-token rotation — *deferred (short-lived bearer tokens for now)*
-- [ ] Scheduled reports (daily/weekly PDF summary) — *deferred (backlog)*
+- [x] Scheduled reports — on-demand PDF fleet report + scheduled webhook summary (cron)
 
 ---
 
@@ -109,7 +109,7 @@
 - [x] Ansible inventory export (dynamic-inventory JSON, group `emsfp`)
 - [x] Keyboard shortcuts for power users (`g`+key navigation, `?` help)
 - [x] Minimal-impact polling (tiered fetch, keep-alive, bounded concurrency) — see [PERFORMANCE.md](PERFORMANCE.md)
-- [ ] Mobile-optimised layout — responsive polish (partial; sidebar already collapses)
+- [x] Mobile-optimised layout — sidebar collapse, responsive Settings nav, graceful top bar
 - [ ] Dark/light theme toggle — *deferred: NOC/SOC dashboards are intentionally dark; a full light theme needs a colour-token refactor for low value*
 - [ ] NMS integration — SNMP trap receiver / forwarder — *deferred: adds a listener and ongoing network/device load, which runs counter to the minimal-impact goal; revisit only if required*
 - [ ] Automated SFP vendor/model lookup from serial — *deferred: the documented API exposes `sfp_type` but not vendor/PN/serial strings (see ISSUES.md); needs hardware verification first*
