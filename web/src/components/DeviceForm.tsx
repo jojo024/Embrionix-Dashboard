@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Loader } from 'lucide-react'
 import type { Device } from '../types/device'
 
 type FormData = Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data'>
@@ -53,6 +53,7 @@ function Field({ label, name, value, onChange, placeholder, required, type = 'te
 
 export function DeviceForm({ device, onSubmit, onCancel, isLoading }: Props) {
   const [form, setForm] = useState<FormData>(EMPTY)
+  const [fetchingFirmware, setFetchingFirmware] = useState(false)
 
   useEffect(() => {
     if (device) {
@@ -74,6 +75,36 @@ export function DeviceForm({ device, onSubmit, onCancel, isLoading }: Props) {
       setForm(EMPTY)
     }
   }, [device])
+
+  // Auto-fetch firmware version when creating a new device and IP is set
+  useEffect(() => {
+    if (device || !form.management_ip_red && !form.management_ip_blue) return
+
+    const ip = form.management_ip_red || form.management_ip_blue
+    if (!ip) return
+
+    const timer = setTimeout(async () => {
+      setFetchingFirmware(true)
+      try {
+        const response = await fetch(`http://${ip}/emsfp/node/v1/self/information`, {
+          signal: AbortSignal.timeout(5000)
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setForm(prev => ({
+            ...prev,
+            firmware_version: data.current_version || prev.firmware_version
+          }))
+        }
+      } catch {
+        // Silently fail if device is unreachable
+      } finally {
+        setFetchingFirmware(false)
+      }
+    }, 800)
+
+    return () => clearTimeout(timer)
+  }, [form.management_ip_red, form.management_ip_blue, device])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -129,8 +160,8 @@ export function DeviceForm({ device, onSubmit, onCancel, isLoading }: Props) {
             <section>
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Management Network</h3>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="IP Address (Red)" name="management_ip_red" value={form.management_ip_red} onChange={handleChange} placeholder="192.168.1.100" />
-                <Field label="IP Address (Blue)" name="management_ip_blue" value={form.management_ip_blue} onChange={handleChange} placeholder="192.168.2.100" />
+                <Field label="IP Address (Red)" name="management_ip_red" value={form.management_ip_red} onChange={handleChange} placeholder="192.168.1.100" required={!device} />
+                <Field label="IP Address (Blue)" name="management_ip_blue" value={form.management_ip_blue} onChange={handleChange} placeholder="192.168.2.100" required={!device} />
               </div>
             </section>
 
@@ -139,7 +170,26 @@ export function DeviceForm({ device, onSubmit, onCancel, isLoading }: Props) {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Hardware</h3>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Serial Number" name="serial_number" value={form.serial_number} onChange={handleChange} placeholder="EMB-2024-XXXXX" />
-                <Field label="Firmware Version" name="firmware_version" value={form.firmware_version} onChange={handleChange} placeholder="0x0000033b" />
+                <div>
+                  <label className="label">
+                    Firmware Version
+                    {!device && <span className="text-slate-500 text-xs ml-1">(auto-detected)</span>}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="firmware_version"
+                      value={form.firmware_version}
+                      onChange={handleChange}
+                      placeholder="Auto-fetched from device"
+                      readOnly={!device}
+                      className="input"
+                    />
+                    {fetchingFirmware && (
+                      <Loader className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
 
