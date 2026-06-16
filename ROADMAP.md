@@ -38,19 +38,21 @@
 
 ---
 
-## Phase 3 — Advanced Monitoring
+## Phase 3 — Advanced Monitoring ✅
 
 **Goal:** Historical trends and configurable alerting.
 
 - [x] Extended retention settings (configurable days to keep poll history)
 - [x] History pruning background job
-- [ ] Dashboard trend sparklines per device card
+- [x] Dashboard trend sparklines per device card
+- [x] Export history data as CSV
+- [x] Webhook notifications (Slack-compatible / generic) on status transitions
+- [x] Configurable alert thresholds (temperature, response time)
+- [x] Status-transition history (alert log) per device
+- [ ] Email alerting (SMTP) when device transitions to critical/offline
+- [ ] Per-device threshold overrides (currently fleet-wide)
 - [ ] Recharts zoom/pan on monitoring charts
-- [ ] Export chart data as CSV
-- [ ] Email alerting when device transitions to critical/offline
-- [ ] Webhook notifications (Slack, Teams, generic)
-- [ ] Alert rules engine — configurable thresholds per device/fleet
-- [ ] SFP optical power trend and degradation detection
+- [ ] SFP optical power degradation detection
 - [ ] Fleet temperature heatmap
 
 ---

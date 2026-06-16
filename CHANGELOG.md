@@ -7,6 +7,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-16
+
+### Added
+
+**Alerting & notifications**
+- Configurable health thresholds via a new `alerting` config section:
+  `temp_warning_c`, `temp_critical_c`, `response_warning_ms` — applied in the
+  status engine (response-time and warning-temperature now raise warnings).
+- Status-transition detection: every `online↔warning↔critical↔offline` change is
+  recorded as an `AlertEvent` (new table) with from/to status and a message.
+- Outbound webhook notifications on transitions into configured states
+  (`alerting.webhook_on`, default `critical`/`offline`). Payload is
+  Slack-compatible (`text`) and carries the structured event for generic consumers.
+- `GET /api/v1/alerts` — status-transition history (optional `device` filter).
+- `GET /api/v1/config` — effective non-sensitive runtime config (webhook URL
+  surfaced only as enabled/disabled).
+- Alert history is pruned alongside poll history by the daily retention job.
+
+**Trends & export**
+- Device-card temperature **sparklines** (pure SVG — kept out of the recharts bundle).
+- PTP-offset already trended in Phase 2; **CSV export** of poll history via
+  `GET /api/v1/devices/:id/history.csv` and an Export button on the Monitoring tab.
+
+**Frontend**
+- Logs tab now shows the device's **status-change history** beneath active alarms.
+- New Settings → **Alerting** tab displaying the effective thresholds and webhook
+  state; settings routing generalised to `/settings/:tab`.
+
+**Tests**
+- Webhook notifier tests (Slack-compatible payload, gating) and expanded
+  status-derivation tests for the configurable thresholds.
+
 ## [0.2.0] — 2026-06-16
 
 ### Added
