@@ -35,6 +35,7 @@ func NewRouter(
 	monHandler := handlers.NewMonitoringHandler(deviceSvc, pollingSvc, pollRepo, cfg.Polling.TimeoutSeconds)
 	settingsHandler := handlers.NewSettingsHandler(pollRepo)
 	configHandler := handlers.NewConfigHandler(cfg)
+	configWriteHandler := handlers.NewConfigWriteHandler(deviceSvc, pollRepo, cfg.Polling.TimeoutSeconds)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -51,6 +52,15 @@ func NewRouter(
 		v1.POST("/devices/:id/poll", monHandler.PollDeviceNow)
 		v1.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
 		v1.GET("/devices/:id/config", monHandler.GetDeviceConfig)
+
+		// Configuration writes + device actions (Phase 4b) — audited
+		v1.PUT("/devices/:id/config/network", configWriteHandler.UpdateNetwork)
+		v1.PUT("/devices/:id/config/protocols", configWriteHandler.UpdateProtocols)
+		v1.PUT("/devices/:id/config/syslog", configWriteHandler.UpdateSyslog)
+		v1.PUT("/devices/:id/config/routes", configWriteHandler.UpdateRoutes)
+		v1.POST("/devices/:id/reboot", configWriteHandler.Reboot)
+		v1.POST("/devices/:id/config-reset", configWriteHandler.ConfigReset)
+		v1.GET("/audit", configWriteHandler.GetAuditLog)
 
 		// Dashboard summary + fleet-wide alarms + alert history
 		v1.GET("/summary", deviceHandler.GetDeviceSummary)

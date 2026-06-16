@@ -49,6 +49,25 @@ func (r *PollRepository) PruneOlderThan(age time.Duration) error {
 	return r.db.Where("polled_at < ?", cutoff).Delete(&models.PollResult{}).Error
 }
 
+// SaveAudit persists a configuration-change / device-action audit event.
+func (r *PollRepository) SaveAudit(event *models.AuditEvent) error {
+	return r.db.Create(event).Error
+}
+
+// FindAudit returns recent audit events, newest first. If deviceID is empty,
+// events across all devices are returned.
+func (r *PollRepository) FindAudit(deviceID string, limit int) ([]models.AuditEvent, error) {
+	var events []models.AuditEvent
+	q := r.db.Order("created_at desc")
+	if deviceID != "" {
+		q = q.Where("device_id = ?", deviceID)
+	}
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	return events, q.Find(&events).Error
+}
+
 // SaveAlert persists a status-transition alert event.
 func (r *PollRepository) SaveAlert(event *models.AlertEvent) error {
 	return r.db.Create(event).Error
