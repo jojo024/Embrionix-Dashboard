@@ -105,3 +105,20 @@ engine/essence. Deeper per-essence breakdown is a future enhancement.
 Polling every 30 seconds generates ~2,880 rows/day per device. A daily pruning
 job (`polling.history_retention_days`, default 30) bounds growth; SQLite WAL mode
 and indexed queries keep queries fast within the window.
+
+### Authentication & RBAC (Phase 5) — disabled by default
+Authentication ships **off** (`auth.enabled: false`) so existing/live deployments
+keep working with no login. Enabling it requires a `jwt_secret`; on first start an
+admin account is seeded (password from `auth.admin_password`, or a random one that
+is logged once). RBAC (viewer/operator/admin) is enforced server-side — the
+frontend role-gating is convenience only.
+
+### Deferred enterprise items
+The following Phase 5 items are intentionally **not** implemented yet, with rationale:
+- **LDAP / Active Directory** — requires environment-specific directory config and
+  a test directory; local accounts cover the immediate need.
+- **PostgreSQL / multi-writer** — SQLite (WAL, single writer) is sufficient at the
+  current fleet scale; a Postgres driver swap is isolated to `pkg/database`.
+- **Refresh-token rotation** — short-lived bearer tokens (configurable TTL) are
+  used; rotation can be layered on without API changes.
+- **Scheduled PDF reports** — backlog; CSV export + webhooks cover current reporting.

@@ -2,7 +2,7 @@
 
 A production-quality monitoring and management platform for **Embrionix EM6** devices, built with Go and React.
 
-![Phase](https://img.shields.io/badge/Phase-3%20Advanced%20Monitoring-blue)
+![Phase](https://img.shields.io/badge/Phase-5%20Enterprise-blue)
 ![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -18,8 +18,10 @@ A production-quality monitoring and management platform for **Embrionix EM6** de
 - **Historical Metrics** — SQLite time-series for temperature, fan, SFP TX/RX power, PTP offset, and response time, with device-card sparklines, CSV export, and a daily pruning job
 - **Alerting** — Configurable thresholds, a per-device status-change history, and Slack-compatible/generic webhook notifications on transitions into critical/offline
 - **Per-Device Detail** — Overview (health, PTP, firmware), Interfaces (e1/e2, LLDP, ethernet, media flows), SFP Modules, Monitoring charts, and Logs (alarms + status history) tabs
+- **Configuration Management** — Read/write device config (network, protocols, syslog, routes), reboot & reset actions behind confirmation dialogs, per-device snapshot export/restore, SQLite database backup, and bulk apply across devices — all audited
+- **Authentication & RBAC** (optional, off by default) — Local accounts (bcrypt) + JWT, three roles (viewer/operator/admin), API-key access for integrations, and a Users admin screen
 - **Operator UX** — Toast notifications, keyboard shortcut (press **N** to add a device), live API-connectivity indicator
-- **Settings** — Polling configuration, alerting overview, device management, backup/restore groundwork
+- **Settings** — Polling, alerting, bulk configuration, backup & restore, and user management
 
 ---
 
@@ -85,6 +87,13 @@ alerting:
   response_warning_ms: 2000     # API response time (ms) raising a warning
   webhook_url: ""               # Slack-compatible/generic webhook; empty disables notifications
   webhook_on: [critical, offline]   # fire a webhook on transition INTO these states
+
+auth:
+  enabled: false                # OFF by default — no login. Set true to require authentication.
+  jwt_secret: ""                # REQUIRED when enabled (long random string / EMB_AUTH_JWT_SECRET)
+  admin_username: "admin"       # seeded on first start when enabled
+  admin_password: ""            # blank → random password generated and logged once
+  api_key: ""                   # optional X-API-Key for integrations (admin-equivalent)
 
 cors:
   allowed_origins:
