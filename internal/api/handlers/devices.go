@@ -103,6 +103,26 @@ func (h *DeviceHandler) GetDeviceSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, counts)
 }
 
+// ReportHandler serves the on-demand fleet report.
+type ReportHandler struct {
+	reportSvc *services.ReportService
+}
+
+func NewReportHandler(reportSvc *services.ReportService) *ReportHandler {
+	return &ReportHandler{reportSvc: reportSvc}
+}
+
+// GetReportPDF GET /api/v1/report.pdf
+func (h *ReportHandler) GetReportPDF(c *gin.Context) {
+	pdf, err := h.reportSvc.PDF()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Header("Content-Disposition", "attachment; filename=embrionix-fleet-report.pdf")
+	c.Data(http.StatusOK, "application/pdf", pdf)
+}
+
 // GetAnsibleInventory GET /api/v1/export/ansible
 // Returns the device inventory in Ansible dynamic-inventory JSON format so it
 // can be consumed directly by `ansible-inventory` / playbooks.

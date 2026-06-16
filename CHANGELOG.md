@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — scheduled reports & mobile layout
+- **Fleet report**: on-demand PDF (`GET /api/v1/report.pdf`) summarising fleet
+  status, active alarms, and recent status changes — pure-Go PDF, no system deps.
+  Download button in Settings → Backup & Restore.
+- **Scheduled reports**: a `reports` config block (`enabled`, `cron`) delivers a
+  text fleet summary to the alerting webhook on a schedule (off by default).
+- **Mobile-optimised layout**: Settings nav collapses to a horizontal scroller,
+  the top bar degrades gracefully on small screens; tables already scroll.
+- Tests for report text/PDF rendering.
+
 ### Changed — minimal-impact polling
 - **Tiered polling**: dynamic health (~6 GETs) is fetched every cycle; the static
   / heavy endpoints (firmware, license, interfaces, LLDP, media flows, SDI, and

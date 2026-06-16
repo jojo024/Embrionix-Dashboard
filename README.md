@@ -88,6 +88,10 @@ alerting:
   webhook_url: ""               # Slack-compatible/generic webhook; empty disables notifications
   webhook_on: [critical, offline]   # fire a webhook on transition INTO these states
 
+reports:
+  enabled: false                # scheduled webhook summary (the PDF is always available on demand)
+  cron: "0 8 * * 1"             # 5-field cron — default Mondays 08:00; needs alerting.webhook_url
+
 auth:
   enabled: false                # OFF by default — no login. Set true to require authentication.
   jwt_secret: ""                # REQUIRED when enabled (long random string / EMB_AUTH_JWT_SECRET)
