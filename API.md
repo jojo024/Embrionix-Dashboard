@@ -264,6 +264,24 @@ Each section is best-effort and omitted if the device type does not implement it
 
 **Response 503** if the device is unreachable.
 
+## Authentication & users (Phase 5)
+
+Auth is **disabled by default**; when off, all endpoints are open (implicit admin).
+When `auth.enabled` is true, send `Authorization: Bearer <jwt>` (from login) or
+`X-API-Key: <key>`. RBAC: viewer = GET reads, operator = + writes/actions,
+admin = + user management. Under-privileged calls return **403**; missing/invalid
+credentials return **401**.
+
+### `POST /api/v1/auth/login`
+Body `{ "username": "...", "password": "..." }` → `{ "token": "...", "user": { "id", "username", "role" } }`.
+
+### `GET /api/v1/auth/me`
+Reports `{ "auth_enabled": bool, "username": "...", "role": "..." }` for the caller.
+
+### `GET/POST /api/v1/users`, `PUT/DELETE /api/v1/users/:id` (admin)
+List / create / update (role or password) / delete users. The last remaining
+account cannot be deleted.
+
 ## Configuration writes & device actions (Phase 4b)
 
 All writes proxy a PUT to the device and are recorded in the audit log

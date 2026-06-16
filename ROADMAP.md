@@ -87,20 +87,20 @@
 
 ---
 
-## Phase 5 — Enterprise Features
+## Phase 5 — Enterprise Features ✅ (core)
 
 **Goal:** Multi-user, auditable, and notification-ready.
 
-- [ ] Local user accounts with hashed passwords (bcrypt)
-- [ ] JWT authentication for the REST API
-- [ ] Role-based access control — Viewer / Operator / Admin roles
-- [ ] Audit log — all configuration changes recorded with user + timestamp
-- [ ] Multi-user concurrency (upgrade to PostgreSQL option)
-- [ ] LDAP / Active Directory authentication
-- [ ] Session management and token refresh
-- [ ] API key support for external integrations
-- [ ] Read-only public dashboard mode
-- [ ] Scheduled reports (daily/weekly PDF summary)
+- [x] Local user accounts with hashed passwords (bcrypt)
+- [x] JWT authentication for the REST API
+- [x] Role-based access control — Viewer / Operator / Admin roles
+- [x] Audit log — configuration changes recorded (user attribution when auth on)
+- [x] API key support for external integrations (`X-API-Key`)
+- [x] Read-only access mode (Viewer role / auth-disabled implicit admin)
+- [ ] LDAP / Active Directory authentication — *deferred (see ISSUES.md)*
+- [ ] Multi-user concurrency / PostgreSQL backend — *deferred (SQLite single-writer is sufficient at current scale)*
+- [ ] Refresh-token rotation — *deferred (short-lived bearer tokens for now)*
+- [ ] Scheduled reports (daily/weekly PDF summary) — *deferred (backlog)*
 
 ---
 
