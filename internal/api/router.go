@@ -50,6 +50,7 @@ func NewRouter(
 		v1.GET("/devices/:id/history.csv", monHandler.ExportDeviceHistoryCSV)
 		v1.POST("/devices/:id/poll", monHandler.PollDeviceNow)
 		v1.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
+		v1.GET("/devices/:id/config", monHandler.GetDeviceConfig)
 
 		// Dashboard summary + fleet-wide alarms + alert history
 		v1.GET("/summary", deviceHandler.GetDeviceSummary)
