@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            ext: .exe
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build \
+            -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
+            -o dist/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} \
+            ./cmd/server/
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp dist/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} release/
+          cp -r web/dist release/web
+          cp configs/config.yaml release/
+          tar -czf embrionix-dashboard-${{ matrix.suffix }}.tar.gz -C release .
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: embrionix-dashboard-${{ matrix.suffix }}.tar.gz
+          generate_release_notes: true

@@ -1,0 +1,22 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "debug"  # debug | release
+
+database:
+  path: "./data/embrionix.db"
+
+logging:
+  level: "info"  # debug | info | warn | error
+  file: "./logs/embrionix.log"
+
+polling:
+  interval_seconds: 30
+  timeout_seconds: 10
+  retry_count: 2
+  icmp_enabled: true
+
+cors:
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:3000"
