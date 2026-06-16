@@ -49,8 +49,9 @@ func NewRouter(
 		v1.POST("/devices/:id/poll", monHandler.PollDeviceNow)
 		v1.GET("/devices/:id/reachability", monHandler.GetDeviceReachability)
 
-		// Dashboard summary
+		// Dashboard summary + fleet-wide alarms
 		v1.GET("/summary", deviceHandler.GetDeviceSummary)
+		v1.GET("/alarms", deviceHandler.GetFleetAlarms)
 
 		// Settings
 		v1.GET("/settings/:key", settingsHandler.GetSetting)

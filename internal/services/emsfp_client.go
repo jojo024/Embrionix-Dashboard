@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/embrionix/dashboard/internal/models"
@@ -160,6 +162,108 @@ type portInfo struct {
 	} `json:"sfp_ddm_info"`
 }
 
+// --- Additional monitoring endpoint structs ---
+
+type selfFirmware struct {
+	Info []struct {
+		Slot      int    `json:"slot"`
+		ProductID int    `json:"product_id"`
+		Desc      string `json:"desc"`
+		Version   string `json:"version"`
+		Active    string `json:"active"`
+		Default   string `json:"default"`
+	} `json:"info"`
+}
+
+type selfLicense struct {
+	Feature map[string]string `json:"feature"`
+}
+
+type selfDiagEthernet struct {
+	Stats struct {
+		TxPackets string `json:"tx_packets"`
+		RxPackets string `json:"rx_packets"`
+		RxError   string `json:"rx_error"`
+		TxRate    string `json:"tx_rate"`
+		RxRate    string `json:"rx_rate"`
+	} `json:"stats"`
+}
+
+type selfDiagRefclk struct {
+	Status           string `json:"status"`
+	RefclkMasterIP   string `json:"refclk_master_ip"`
+	OffsetFromMaster int64  `json:"offset_from_master"`
+	MeanDelay        int64  `json:"mean_delay"`
+	Events           struct {
+		CoarseUnlock bool `json:"coarse_unlock"`
+		Unlock       bool `json:"unlock"`
+	} `json:"events"`
+	Counters struct {
+		SyncCounter         int64 `json:"sync_counter"`
+		DelayRequestCounter int64 `json:"delay_request_counter"`
+	} `json:"counters"`
+}
+
+type selfDiagCommon struct {
+	Stats struct {
+		IPv4PacketDrop      string `json:"ipv4_packet_drop"`
+		WatchdogStatus      string `json:"watchdog_status"`
+		VideoBandwidthUsage string `json:"video_bandwidth_usage"`
+	} `json:"stats"`
+}
+
+type selfInterfaceEntry struct {
+	StaticIP       string `json:"static_ip"`
+	StaticGateway  string `json:"static_gateway"`
+	CurrentIP      string `json:"current_ip"`
+	CurrentGateway string `json:"current_gateway"`
+	DHCP           bool   `json:"dhcp"`
+	VLAN           int    `json:"vlan"`
+}
+
+type lldpResponse struct {
+	Neighbor struct {
+		Chassis string `json:"chassis"`
+		Port    string `json:"port"`
+		TTL     string `json:"ttl"`
+	} `json:"neighbor"`
+}
+
+type telemetryDevices struct {
+	Devices []struct {
+		Device  string `json:"device"`
+		Channel int    `json:"channel"`
+		Valid   bool   `json:"valid"`
+		Type    string `json:"type"`
+		Engines []struct {
+			Flows []struct {
+				PktCnt int64 `json:"pkt_cnt"`
+			} `json:"flows"`
+		} `json:"engines"`
+	} `json:"devices"`
+}
+
+type sdiResponse struct {
+	Configuration struct {
+		OperatingBitRate string `json:"operating_bit_rate"`
+	} `json:"configuration"`
+}
+
+// ptpStatusLabel decodes the EM6 refclk status hex code into a human label.
+// Per the EM6 API: 0 = not locked, 1 = stage 1 (coarse) lock, 3 = stage 2 (locked).
+func ptpStatusLabel(code string) (label string, locked bool) {
+	switch code {
+	case "0", "0x0", "":
+		return "unlocked", false
+	case "1", "0x1":
+		return "coarse lock", false
+	case "3", "0x3":
+		return "locked", true
+	default:
+		return "code " + code, false
+	}
+}
+
 // Poll fetches all relevant data from the device and returns a DevicePollingData.
 func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, error) {
 	data := &models.DevicePollingData{}
@@ -216,6 +320,143 @@ func (c *EmsfpClient) Poll(ctx context.Context) (*models.DevicePollingData, erro
 				RxPower:     p.RxPower,
 			})
 		}
+	}
+
+	// Fetch /self/diag/refclk - detailed PTP status
+	var refclk selfDiagRefclk
+	if err := c.get(ctx, "/self/diag/refclk", &refclk); err == nil {
+		label, locked := ptpStatusLabel(refclk.Status)
+		data.PTP = &models.PTPStatus{
+			StatusCode:       refclk.Status,
+			StatusLabel:      label,
+			Locked:           locked,
+			MasterIP:         refclk.RefclkMasterIP,
+			OffsetFromMaster: refclk.OffsetFromMaster,
+			MeanDelay:        refclk.MeanDelay,
+			SyncCounter:      refclk.Counters.SyncCounter,
+			DelayReqCounter:  refclk.Counters.DelayRequestCounter,
+			CoarseUnlock:     refclk.Events.CoarseUnlock,
+			Unlock:           refclk.Events.Unlock,
+		}
+		// Backfill the simple refclk fields if telemetry/node did not populate them.
+		if data.RefclkStatus == "" {
+			data.RefclkStatus = label
+		}
+		if data.OffsetFromMaster == 0 {
+			data.OffsetFromMaster = refclk.OffsetFromMaster
+		}
+		if !locked {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("PTP not locked (%s)", label))
+		}
+	}
+
+	// Fetch /self/firmware - firmware bank slots
+	var fw selfFirmware
+	if err := c.get(ctx, "/self/firmware", &fw); err == nil {
+		for _, s := range fw.Info {
+			if s.ProductID == 0 && s.Version == "" {
+				continue // empty slot
+			}
+			data.FirmwareSlots = append(data.FirmwareSlots, models.FirmwareSlot{
+				Slot:      s.Slot,
+				ProductID: s.ProductID,
+				Desc:      strings.TrimSpace(s.Desc),
+				Version:   s.Version,
+				Active:    s.Active == "yes",
+				Default:   s.Default == "yes",
+			})
+		}
+	}
+
+	// Fetch /self/license - licensed features
+	var lic selfLicense
+	if err := c.get(ctx, "/self/license", &lic); err == nil && len(lic.Feature) > 0 {
+		data.Licenses = lic.Feature
+	}
+
+	// Fetch /self/diag/ethernet - control-plane packet counters
+	var eth selfDiagEthernet
+	if err := c.get(ctx, "/self/diag/ethernet", &eth); err == nil {
+		data.Ethernet = &models.EthernetStats{
+			TxPackets: eth.Stats.TxPackets,
+			RxPackets: eth.Stats.RxPackets,
+			RxError:   eth.Stats.RxError,
+			TxRate:    eth.Stats.TxRate,
+			RxRate:    eth.Stats.RxRate,
+		}
+		if eth.Stats.RxError != "" && eth.Stats.RxError != "N/A" && eth.Stats.RxError != "0" {
+			data.Alarms = append(data.Alarms, "Ethernet RX errors detected: "+eth.Stats.RxError)
+		}
+	}
+
+	// Fetch /self/diag/common - device health stats
+	var common selfDiagCommon
+	if err := c.get(ctx, "/self/diag/common", &common); err == nil {
+		data.VideoBandwidthUsage = common.Stats.VideoBandwidthUsage
+		data.WatchdogStatus = common.Stats.WatchdogStatus
+		data.IPv4PacketDrop = common.Stats.IPv4PacketDrop
+		if v := common.Stats.VideoBandwidthUsage; v != "" && v != "good" && v != "N/A" {
+			data.Alarms = append(data.Alarms, "Video bandwidth usage: "+v)
+		}
+	}
+
+	// Fetch /self/interfaces - per-interface network config
+	var ifaces map[string]selfInterfaceEntry
+	if err := c.get(ctx, "/self/interfaces", &ifaces); err == nil {
+		// Stable ordering by interface name (e1, e2, ...).
+		names := make([]string, 0, len(ifaces))
+		for name := range ifaces {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			e := ifaces[name]
+			data.Interfaces = append(data.Interfaces, models.NetworkInterface{
+				Name:           name,
+				StaticIP:       e.StaticIP,
+				StaticGateway:  e.StaticGateway,
+				CurrentIP:      e.CurrentIP,
+				CurrentGateway: e.CurrentGateway,
+				DHCP:           e.DHCP,
+				VLAN:           e.VLAN,
+			})
+		}
+	}
+
+	// Fetch /lldp - discovered neighbour
+	var lldp lldpResponse
+	if err := c.get(ctx, "/lldp", &lldp); err == nil && lldp.Neighbor.Chassis != "" {
+		data.LLDP = &models.LLDPNeighbor{
+			ChassisID: lldp.Neighbor.Chassis,
+			PortID:    lldp.Neighbor.Port,
+			TTL:       lldp.Neighbor.TTL,
+		}
+	}
+
+	// Fetch /telemetry/devices - media flow packet counters
+	var telDevices telemetryDevices
+	if err := c.get(ctx, "/telemetry/devices", &telDevices); err == nil {
+		for _, d := range telDevices.Devices {
+			md := models.MediaDeviceTelemetry{
+				Device:  d.Device,
+				Channel: d.Channel,
+				Type:    d.Type,
+				Valid:   d.Valid,
+			}
+			for _, eng := range d.Engines {
+				for _, fl := range eng.Flows {
+					md.FlowCount++
+					md.TotalPkts += fl.PktCnt
+				}
+			}
+			data.MediaDevices = append(data.MediaDevices, md)
+		}
+	}
+
+	// Fetch /sdi - SDI configuration (encap/decap devices only)
+	var sdi sdiResponse
+	if err := c.get(ctx, "/sdi", &sdi); err == nil {
+		data.SDIBitRate = sdi.Configuration.OperatingBitRate
 	}
 
 	// Gather alarms from SFP DDM data - attempt to get port list, then fetch each
@@ -292,4 +533,24 @@ func (c *EmsfpClient) CheckReachability(ctx context.Context) (reachable bool, re
 	responseMs = time.Since(start).Milliseconds()
 	reachable = err == nil
 	return
+}
+
+// TCPProbe performs a lightweight L4 connectivity check by dialing the device's
+// management port, independent of the REST API. This is the privilege-free
+// alternative to an ICMP echo (raw ICMP sockets require elevated privileges on
+// Windows; see ISSUES.md). Returns whether the port accepted a connection and
+// how long the handshake took.
+func ProbeTCP(ctx context.Context, ip, port string, timeout time.Duration) (reachable bool, responseMs int64) {
+	if port == "" {
+		port = "80"
+	}
+	d := net.Dialer{Timeout: timeout}
+	start := time.Now()
+	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ip, port))
+	responseMs = time.Since(start).Milliseconds()
+	if err != nil {
+		return false, responseMs
+	}
+	_ = conn.Close()
+	return true, responseMs
 }
