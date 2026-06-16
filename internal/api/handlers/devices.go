@@ -103,6 +103,45 @@ func (h *DeviceHandler) GetDeviceSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, counts)
 }
 
+// GetAnsibleInventory GET /api/v1/export/ansible
+// Returns the device inventory in Ansible dynamic-inventory JSON format so it
+// can be consumed directly by `ansible-inventory` / playbooks.
+func (h *DeviceHandler) GetAnsibleInventory(c *gin.Context) {
+	devices, err := h.deviceSvc.ListDevices()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	hostvars := gin.H{}
+	hosts := make([]string, 0, len(devices))
+	for _, d := range devices {
+		host := d.ManagementIPRed
+		if host == "" {
+			host = d.ManagementIPBlue
+		}
+		hostvars[d.Name] = gin.H{
+			"ansible_host":        host,
+			"management_ip_red":   d.ManagementIPRed,
+			"management_ip_blue":  d.ManagementIPBlue,
+			"embrionix_model":     d.Model,
+			"embrionix_serial":    d.SerialNumber,
+			"embrionix_location":  d.Location,
+			"embrionix_rack":      d.Rack,
+			"embrionix_tags":      d.Tags,
+			"monitoring_enabled":  d.MonitoringEnabled,
+		}
+		hosts = append(hosts, d.Name)
+	}
+
+	c.Header("Content-Disposition", "attachment; filename=embrionix-inventory.json")
+	c.JSON(http.StatusOK, gin.H{
+		"_meta": gin.H{"hostvars": hostvars},
+		"all":   gin.H{"hosts": hosts},
+		"emsfp": gin.H{"hosts": hosts},
+	})
+}
+
 // GetFleetAlarms GET /api/v1/alarms
 // Returns every active alarm across the fleet for the dashboard alarm panel.
 func (h *DeviceHandler) GetFleetAlarms(c *gin.Context) {

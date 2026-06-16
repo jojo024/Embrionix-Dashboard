@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed — minimal-impact polling
+- **Tiered polling**: dynamic health (~6 GETs) is fetched every cycle; the static
+  / heavy endpoints (firmware, license, interfaces, LLDP, media flows, SDI, and
+  per-port SFP DDM) only every `polling.full_every` cycle (default 10) and are
+  carried forward in between. Cuts steady-state device requests ~17 → ~6 (~58 %).
+- **HTTP keep-alive within a poll**: the many GETs of one poll reuse a single TCP
+  connection (was one connection per request) — ~88 % fewer handshakes on the
+  device's embedded server.
+- **Bounded fleet concurrency** (`polling.max_concurrent_polls`, default 8) so a
+  large fleet no longer bursts every cycle.
+- Alarm derivation moved to a single pass over the final data, so light polls
+  stay correct.
+- New [PERFORMANCE.md](PERFORMANCE.md) quantifies network/device impact and tuning.
+
+### Added — backlog items
+- **Ansible inventory export** (`GET /api/v1/export/ansible`) — devices as Ansible
+  dynamic-inventory JSON (group `emsfp`); download button in Settings → Backup.
+- **Keyboard shortcuts** — `g`+`d/v/m/s` to navigate, `?` for a help overlay.
+- **Auth-aware downloads** — config snapshot, DB backup, history CSV and Ansible
+  inventory now download with the bearer token attached (fixes downloads when
+  auth is enabled).
+
 ### Added — Phase 5 (authentication, RBAC & user management)
 - Optional auth, **disabled by default** (`auth.enabled: false`) so existing
   deployments keep running with no login. Enabling requires a `jwt_secret` and

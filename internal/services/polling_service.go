@@ -24,6 +24,8 @@ type PollingService struct {
 	mu      sync.RWMutex
 	results map[string]*pollState // keyed by device ID
 
+	cycle uint64 // incremented each pollAll; drives the full-vs-light decision
+
 	stop chan struct{}
 	wg   sync.WaitGroup
 }
@@ -128,19 +130,36 @@ func (s *PollingService) pollAll() {
 		return
 	}
 
+	s.cycle++
+	// Full poll on the first cycle, then every full_every cycles.
+	fullEvery := s.pollCfg.FullEvery
+	if fullEvery < 1 {
+		fullEvery = 1
+	}
+	full := s.cycle == 1 || s.cycle%uint64(fullEvery) == 0
+
+	// Bound concurrency so a large fleet doesn't burst the network at once.
+	limit := s.pollCfg.MaxConcurrentPolls
+	if limit < 1 {
+		limit = 1
+	}
+	sem := make(chan struct{}, limit)
+
 	var wg sync.WaitGroup
 	for _, d := range devices {
 		d := d
 		wg.Add(1)
+		sem <- struct{}{}
 		go func() {
 			defer wg.Done()
-			s.pollDevice(d)
+			defer func() { <-sem }()
+			s.pollDevice(d, full)
 		}()
 	}
 	wg.Wait()
 }
 
-func (s *PollingService) pollDevice(device models.Device) {
+func (s *PollingService) pollDevice(device models.Device, full bool) {
 	if device.ManagementIPRed == "" && device.ManagementIPBlue == "" {
 		return
 	}
@@ -176,8 +195,18 @@ func (s *PollingService) pollDevice(device models.Device) {
 
 	client := NewEmsfpClient(ip, "80", s.pollCfg.TimeoutSeconds)
 
+	// Carry forward the previous full-poll's static data on a light poll. If we
+	// have never had a successful full poll, force a full one this cycle.
+	var prevData *models.DevicePollingData
+	if prev := s.GetState(device.ID); prev != nil {
+		prevData = prev.Data
+	}
+	if prevData == nil {
+		full = true
+	}
+
 	start := time.Now()
-	pollingData, err := client.Poll(ctx)
+	pollingData, err := client.Poll(ctx, full, prevData)
 	responseMs := time.Since(start).Milliseconds()
 	state.ResponseMs = responseMs
 	pollResult.ResponseMs = responseMs

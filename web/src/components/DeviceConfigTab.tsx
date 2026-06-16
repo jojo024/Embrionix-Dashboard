@@ -5,7 +5,7 @@ import {
   useDeviceConfig, useUpdateNetwork, useUpdateProtocols, useUpdateSyslog,
   useUpdateRoutes, useRebootDevice, useConfigReset,
 } from '../hooks/useDevices'
-import { api } from '../api/client'
+import { api, downloadWithAuth } from '../api/client'
 import { useToast } from './Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -131,9 +131,14 @@ export function DeviceConfigTab({ deviceId, active }: { deviceId: string; active
           Changes are written to the live device and recorded in the audit log. Network changes reboot the device.
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <a className="btn-ghost p-1.5" href={api.configExportUrl(deviceId)} download title="Export snapshot (JSON)">
+          <button
+            className="btn-ghost p-1.5"
+            onClick={() => downloadWithAuth(`/api/v1/devices/${deviceId}/config/export`, `config-${deviceId}.json`)
+              .catch(e => notify('error', `Export failed: ${(e as Error).message}`))}
+            title="Export snapshot (JSON)"
+          >
             <Download className="w-4 h-4" />
-          </a>
+          </button>
           {canWrite && (
             <button className="btn-ghost p-1.5" onClick={() => fileInput.current?.click()} title="Restore from snapshot">
               <Upload className="w-4 h-4" />
