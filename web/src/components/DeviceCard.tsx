@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wifi, WifiOff, Thermometer, Wind, Activity, AlertTriangle, Zap } from 'lucide-react';
+import { Wifi, WifiOff, Thermometer, Wind, Activity, AlertTriangle, Zap, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Device } from '../types/device';
 import { StatusBadge } from './StatusBadge';
@@ -53,11 +54,16 @@ export function DeviceCard({ device }: Props) {
   const navigate = useNavigate();
   const pd = device.polling_data;
   const { data: spark } = useDeviceSparkline(device.id);
+  const [dismissedAlarms, setDismissedAlarms] = useState<boolean>(false);
+
   const tempSeries = (spark ?? [])
     .slice()
     .reverse()
     .map(r => r.core_temp)
     .filter((v): v is number => v != null);
+
+  // Filter alarms: if dismissed, don't show
+  const visibleAlarms = dismissedAlarms ? [] : (pd?.alarms ?? []);
 
   const borderColor = {
     online: 'border-emerald-500/20 hover:border-emerald-500/40',
@@ -67,7 +73,7 @@ export function DeviceCard({ device }: Props) {
     unknown: 'border-surface-700 hover:border-surface-600',
   }[device.status] ?? 'border-surface-700 hover:border-surface-600';
 
-  const hasAlarms = pd?.alarms && pd.alarms.length > 0;
+  const hasAlarms = visibleAlarms.length > 0;
 
   return (
     <div
@@ -91,7 +97,13 @@ export function DeviceCard({ device }: Props) {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           {hasAlarms && (
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <button
+              onClick={(e) => { e.stopPropagation(); setDismissedAlarms(true) }}
+              className="group hover:bg-amber-500/20 p-1 rounded-md transition-colors"
+              title="Dismiss alarms"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 group-hover:text-amber-300" />
+            </button>
           )}
           {device.slow_response_count >= 3 && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-400 text-xs font-medium">
@@ -153,24 +165,54 @@ export function DeviceCard({ device }: Props) {
           )}
         </div>
 
-        {/* SFP light levels — ports 3 & 5 only */}
+        {/* SFP light levels — ports 3 & 5 only, with LLDP info */}
         {pd?.ports && (
           (() => {
             const relevantPorts = pd.ports.filter(p => p.port === 3 || p.port === 5)
             return relevantPorts.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                {relevantPorts.map((p) => (
-                  <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
-                    <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
-                    <div className="space-y-0.5 text-xs font-mono">
-                      <div className="text-blue-400">TX {powerTodBm(p.tx_power)}</div>
-                      <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {relevantPorts.map((p) => (
+                    <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
+                      <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
+                      <div className="space-y-0.5 text-xs font-mono">
+                        <div className="text-blue-400">TX {powerTodBm(p.tx_power)}</div>
+                        <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {pd.lldp && (
+                  <div className="bg-surface-800/60 rounded-md px-2 py-1 text-xs">
+                    <div className="text-slate-500 mb-0.5">Neighbor</div>
+                    <div className="text-slate-300 font-mono text-xs space-y-0.5">
+                      <div className="truncate">{pd.lldp.chassis_id}</div>
+                      <div className="text-slate-400">port: {pd.lldp.port_id}</div>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             ) : null
           })()
+        )}
+
+        {/* Dismiss alarms button — shows when alarms exist and not yet dismissed */}
+        {(pd?.alarms && pd.alarms.length > 0 && !dismissedAlarms) && (
+          <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-md px-2 py-1">
+            <span className="text-xs text-amber-300 font-medium">{pd.alarms.length} alarm{pd.alarms.length !== 1 ? 's' : ''}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); setDismissedAlarms(true) }}
+              className="p-0.5 hover:bg-amber-500/20 rounded transition-colors"
+              title="Dismiss alarms"
+            >
+              <X className="w-3 h-3 text-amber-400" />
+            </button>
+          </div>
+        )}
+        {dismissedAlarms && (pd?.alarms?.length ?? 0) > 0 && (
+          <div className="text-xs text-slate-500 px-2 py-1 border border-dashed border-slate-700 rounded-md">
+            {(pd?.alarms?.length ?? 0)} alarm{(pd?.alarms?.length ?? 0) !== 1 ? 's' : ''} dismissed
+          </div>
         )}
       </div>
 
