@@ -78,6 +78,17 @@ export const api = {
   getAuditLog: (deviceId?: string, limit = 100): Promise<AuditLogResponse> =>
     request(`/api/v1/audit?limit=${limit}${deviceId ? `&device=${deviceId}` : ''}`),
 
+  // ---- Backup / restore / bulk (Phase 4c) ----
+  configExportUrl: (id: string): string => `${BASE}/api/v1/devices/${id}/config/export`,
+
+  importDeviceConfig: (id: string, config: DeviceConfig, includeNetwork: boolean): Promise<{ applied: string[]; failed: string[] }> =>
+    request(`/api/v1/devices/${id}/config/import`, { method: 'POST', body: JSON.stringify({ include_network: includeNetwork, config }) }),
+
+  databaseBackupUrl: (): string => `${BASE}/api/v1/backup`,
+
+  bulkConfig: (body: { device_ids: string[]; section: 'protocols' | 'syslog'; protocols?: ProtocolsConfig; syslog?: SyslogUpdate }): Promise<{ results: { device_id: string; success: boolean; message?: string }[] }> =>
+    request('/api/v1/bulk/config', { method: 'POST', body: JSON.stringify(body) }),
+
   checkReachability: (id: string): Promise<Record<string, { ip: string; reachable: boolean; response_ms: number }>> =>
     request(`/api/v1/devices/${id}/reachability`),
 

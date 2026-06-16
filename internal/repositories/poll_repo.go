@@ -49,6 +49,12 @@ func (r *PollRepository) PruneOlderThan(age time.Duration) error {
 	return r.db.Where("polled_at < ?", cutoff).Delete(&models.PollResult{}).Error
 }
 
+// BackupTo writes a consistent snapshot of the entire database to path using
+// SQLite's VACUUM INTO, which is safe to run on a live (WAL) database.
+func (r *PollRepository) BackupTo(path string) error {
+	return r.db.Exec("VACUUM INTO ?", path).Error
+}
+
 // SaveAudit persists a configuration-change / device-action audit event.
 func (r *PollRepository) SaveAudit(event *models.AuditEvent) error {
 	return r.db.Create(event).Error

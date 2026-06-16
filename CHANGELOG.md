@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — Phase 4c (backup, restore & bulk configuration)
+- `GET /api/v1/devices/:id/config/export` — download a device config snapshot (JSON).
+- `POST /api/v1/devices/:id/config/import` — restore protocols/syslog/routes from a
+  snapshot (network optional, reboots); each section audited.
+- `GET /api/v1/backup` — consistent SQLite database snapshot via `VACUUM INTO`,
+  safe on a live DB; in-place restore is manual (documented).
+- `POST /api/v1/bulk/config` — apply syslog or protocols to many devices
+  concurrently, audited per device.
+- Frontend: Export/Restore buttons on the Configuration tab (restore gated by a
+  confirm dialog with an opt-in network checkbox); real Database export in
+  Settings → Backup & Restore; new Settings → Bulk Configuration tab.
+
 ### Added — Phase 4b (configuration writes & device actions)
 - Write endpoints proxying validated PUTs to the device, each recorded in a new
   audit log (`audit_events` table):
