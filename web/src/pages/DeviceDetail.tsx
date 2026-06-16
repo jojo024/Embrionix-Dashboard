@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { useDevice, useDeviceHistory, usePollDevice } from '../hooks/useDevices'
 import { StatusBadge } from '../components/StatusBadge'
+import { useToast } from '../components/Toast'
 import { formatDate, formatRelativeTime } from '../utils/time'
 
 type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'logs'
@@ -99,51 +100,208 @@ function OverviewTab({ device }: { device: ReturnType<typeof useDevice>['data'] 
         {/* Network info */}
         <div className="card p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Network</h3>
-          <InfoRow label="IP (Red)" value={device.management_ip_red} mono />
-          <InfoRow label="IP (Blue)" value={device.management_ip_blue} mono />
+          <div className="flex items-center justify-between py-2.5 border-b border-surface-800 gap-4">
+            <span className="text-xs text-slate-500 shrink-0 w-40">IP (Red)</span>
+            <span className="flex items-center gap-2 text-xs font-mono text-slate-300">
+              {device.reachable_red != null && (
+                <span className={clsx('status-dot', device.reachable_red ? 'status-online' : 'status-offline')} />
+              )}
+              {device.management_ip_red || '—'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 border-b border-surface-800 gap-4">
+            <span className="text-xs text-slate-500 shrink-0 w-40">IP (Blue)</span>
+            <span className="flex items-center gap-2 text-xs font-mono text-slate-300">
+              {device.reachable_blue != null && (
+                <span className={clsx('status-dot', device.reachable_blue ? 'status-online' : 'status-offline')} />
+              )}
+              {device.management_ip_blue || '—'}
+            </span>
+          </div>
           <InfoRow label="Active IP" value={pd?.ip_addr} mono />
           <InfoRow label="DHCP" value={pd?.dhcp_enable === '1' ? 'Enabled' : 'Disabled'} />
           <InfoRow label="Location" value={device.location} />
           <InfoRow label="Rack" value={device.rack} />
           <InfoRow label="Last polled" value={device.last_polled_at ? formatDate(device.last_polled_at) : undefined} />
-          <InfoRow label="PTP Status" value={pd?.refclk_status} />
-          <InfoRow label="Grandmaster" value={pd?.grandmaster_id} mono />
         </div>
       </div>
+
+      {/* PTP + System health */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        {/* PTP / refclk */}
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">PTP / Reference Clock</h3>
+          <div className="flex items-center justify-between py-2.5 border-b border-surface-800 gap-4">
+            <span className="text-xs text-slate-500 shrink-0 w-40">Lock Status</span>
+            <span className={clsx(
+              'text-xs px-2 py-0.5 rounded-full',
+              pd?.ptp?.locked ? 'bg-emerald-500/15 text-emerald-400'
+                : 'bg-amber-500/15 text-amber-400',
+            )}>
+              {pd?.ptp?.status_label ?? pd?.refclk_status ?? 'unknown'}
+            </span>
+          </div>
+          <InfoRow label="Master IP" value={pd?.ptp?.master_ip || pd?.grandmaster_id} mono />
+          <InfoRow label="Offset from Master" value={pd?.ptp ? `${pd.ptp.offset_from_master} ns` : undefined} mono />
+          <InfoRow label="Mean Delay" value={pd?.ptp ? `${pd.ptp.mean_delay} ns` : undefined} mono />
+          <InfoRow label="Sync Counter" value={pd?.ptp?.sync_counter} mono />
+        </div>
+
+        {/* System health */}
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">System Health</h3>
+          <InfoRow label="Video Bandwidth" value={pd?.video_bandwidth_usage} />
+          <InfoRow label="Watchdog" value={pd?.watchdog_status} />
+          <InfoRow label="IPv4 Packet Drop" value={pd?.ipv4_packet_drop} mono />
+          <InfoRow label="Eth RX Errors" value={pd?.ethernet?.rx_error} mono />
+          <InfoRow label="SDI Bit Rate" value={pd?.sdi_bit_rate} />
+          <InfoRow label="Licensed Features" value={pd?.licenses ? Object.keys(pd.licenses).length : undefined} />
+        </div>
+      </div>
+
+      {/* Firmware slots */}
+      {pd?.firmware_slots && pd.firmware_slots.length > 0 && (
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Firmware Banks</h3>
+          <div className="space-y-2">
+            {pd.firmware_slots.map(fw => (
+              <div key={fw.slot} className="flex items-center gap-3 text-xs">
+                <span className="font-mono text-slate-500 w-12">Slot {fw.slot}</span>
+                <span className="flex-1 text-slate-300 truncate">{fw.desc || '—'}</span>
+                <span className="font-mono text-slate-400">{fw.version || '—'}</span>
+                {fw.active && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">active</span>}
+                {fw.default && <span className="px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-400">default</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function InterfacesTab({ device }: { device: ReturnType<typeof useDevice>['data'] }) {
   const pd = device?.polling_data
-  if (!pd?.port_details?.length) {
+  if (!pd) {
     return <div className="text-slate-500 text-sm p-4">No interface data available. Device may be offline.</div>
   }
   return (
     <div className="space-y-4">
-      {pd.port_details.map(port => (
-        <div key={port.port_id} className="card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {port.link === 'up'
-                ? <Wifi className="w-4 h-4 text-emerald-400" />
-                : <WifiOff className="w-4 h-4 text-slate-500" />}
-              <span className="font-medium text-slate-100 font-mono text-sm">{port.port_id}</span>
+      {/* Device network interfaces (e1, e2) */}
+      {pd.interfaces && pd.interfaces.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {pd.interfaces.map(iface => (
+            <div key={iface.name} className="card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-medium text-slate-100 font-mono text-sm uppercase">{iface.name}</span>
+                <span className={clsx(
+                  'text-xs px-2 py-0.5 rounded-full',
+                  iface.dhcp ? 'bg-brand-500/15 text-brand-400' : 'bg-slate-700/50 text-slate-400',
+                )}>
+                  {iface.dhcp ? 'DHCP' : 'Static'}
+                </span>
+              </div>
+              <InfoRow label="Current IP" value={iface.current_ip} mono />
+              <InfoRow label="Current Gateway" value={iface.current_gateway} mono />
+              <InfoRow label="Static IP" value={iface.static_ip} mono />
+              <InfoRow label="VLAN" value={iface.vlan || 'none'} />
             </div>
-            <span className={clsx(
-              'text-xs px-2 py-0.5 rounded-full',
-              port.link === 'up' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700/50 text-slate-500'
-            )}>
-              {port.link ?? 'unknown'}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <InfoRow label="Speed" value={port.speed} />
-            <InfoRow label="SFP Type" value={port.sfp_type} />
-            <InfoRow label="Link" value={port.link} />
-          </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* LLDP neighbour + ethernet counters */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">LLDP Neighbour</h3>
+          {pd.lldp?.chassis_id ? (
+            <>
+              <InfoRow label="Chassis ID" value={pd.lldp.chassis_id} mono />
+              <InfoRow label="Remote Port" value={pd.lldp.port_id} mono />
+              <InfoRow label="TTL" value={pd.lldp.ttl ? `${pd.lldp.ttl}s` : undefined} />
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">No LLDP neighbour discovered.</p>
+          )}
+        </div>
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Control-Plane Ethernet</h3>
+          {pd.ethernet ? (
+            <>
+              <InfoRow label="TX Packets" value={pd.ethernet.tx_packets} mono />
+              <InfoRow label="RX Packets" value={pd.ethernet.rx_packets} mono />
+              <InfoRow label="RX Errors" value={pd.ethernet.rx_error} mono />
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">No ethernet stats available.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Media flows (telemetry/devices) */}
+      {pd.media_devices && pd.media_devices.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-surface-700">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Media Flows</h3>
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-surface-700 text-slate-500">
+                <th className="px-4 py-2 text-left font-medium">Device</th>
+                <th className="px-4 py-2 text-left font-medium">Type</th>
+                <th className="px-4 py-2 text-left font-medium">Channel</th>
+                <th className="px-4 py-2 text-left font-medium">Flows</th>
+                <th className="px-4 py-2 text-left font-medium">Packets</th>
+                <th className="px-4 py-2 text-left font-medium">Valid</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-800">
+              {pd.media_devices.map(md => (
+                <tr key={md.device} className="hover:bg-surface-800/50">
+                  <td className="px-4 py-2 font-mono text-slate-400 truncate max-w-[12rem]">{md.device}</td>
+                  <td className="px-4 py-2 text-slate-300">{md.type}</td>
+                  <td className="px-4 py-2 font-mono text-slate-400">{md.channel}</td>
+                  <td className="px-4 py-2 font-mono text-slate-400">{md.flow_count}</td>
+                  <td className="px-4 py-2 font-mono text-slate-400">{md.total_pkts.toLocaleString()}</td>
+                  <td className="px-4 py-2">
+                    <span className={md.valid ? 'text-emerald-400' : 'text-slate-500'}>{md.valid ? '✓' : '✗'}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* SFP port link state */}
+      {pd.port_details?.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">SFP Ports</h3>
+          {pd.port_details.map(port => (
+            <div key={port.port_id} className="card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {port.link === 'up'
+                    ? <Wifi className="w-4 h-4 text-emerald-400" />
+                    : <WifiOff className="w-4 h-4 text-slate-500" />}
+                  <span className="font-medium text-slate-100 font-mono text-sm">{port.port_id}</span>
+                </div>
+                <span className={clsx(
+                  'text-xs px-2 py-0.5 rounded-full',
+                  port.link === 'up' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700/50 text-slate-500'
+                )}>
+                  {port.link ?? 'unknown'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <InfoRow label="Speed" value={port.speed} />
+                <InfoRow label="SFP Type" value={port.sfp_type} />
+                <InfoRow label="Link" value={port.link} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -219,8 +377,11 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
     temp: r.core_temp ?? null,
     p0tx: r.port0_tx_power ?? null,
     p0rx: r.port0_rx_power ?? null,
+    ptp: r.ptp_offset ?? null,
     ms: r.response_ms,
   }))
+
+  const hasPtp = chartData.some(d => d.ptp != null)
 
   return (
     <div className="space-y-6">
@@ -260,6 +421,26 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* PTP offset chart */}
+      {hasPtp && (
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">PTP Offset from Master (ns)</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                labelStyle={{ color: '#94a3b8' }}
+                itemStyle={{ color: '#2dd4bf' }}
+              />
+              <Line type="monotone" dataKey="ptp" stroke="#2dd4bf" dot={false} strokeWidth={2} name="Offset ns" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Response time chart */}
       <div className="card p-4">
@@ -342,6 +523,17 @@ export function DeviceDetail() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const { data: device, isLoading, refetch, isFetching } = useDevice(id!)
   const pollNow = usePollDevice()
+  const { notify } = useToast()
+
+  const handlePollNow = () => {
+    pollNow.mutate(id!, {
+      onSuccess: (res) => notify(
+        res.reachable ? 'success' : 'error',
+        res.reachable ? 'Device polled successfully.' : 'Device is unreachable.',
+      ),
+      onError: (e) => notify('error', `Poll failed: ${(e as Error).message}`),
+    })
+  }
 
   if (isLoading) {
     return (
@@ -386,7 +578,7 @@ export function DeviceDetail() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             className="btn-secondary"
-            onClick={() => pollNow.mutate(id!)}
+            onClick={handlePollNow}
             disabled={pollNow.isPending}
           >
             <RefreshCw className={clsx('w-4 h-4', pollNow.isPending && 'animate-spin')} />

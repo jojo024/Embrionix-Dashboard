@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @layer base {
   * {
     @apply box-border;
@@ -23,6 +21,11 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-surface-700 rounded-full;
   }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(1rem); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 @layer components {

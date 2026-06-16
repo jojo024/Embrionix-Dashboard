@@ -46,6 +46,61 @@ export interface PortTelemetry {
   rx_power: number;
 }
 
+export interface PTPStatus {
+  status_code: string;
+  status_label: string;
+  locked: boolean;
+  master_ip: string;
+  offset_from_master: number;
+  mean_delay: number;
+  sync_counter: number;
+  delay_request_counter: number;
+  coarse_unlock: boolean;
+  unlock: boolean;
+}
+
+export interface FirmwareSlot {
+  slot: number;
+  product_id: number;
+  desc: string;
+  version: string;
+  active: boolean;
+  default: boolean;
+}
+
+export interface EthernetStats {
+  tx_packets: string;
+  rx_packets: string;
+  rx_error: string;
+  tx_rate: string;
+  rx_rate: string;
+}
+
+export interface NetworkInterface {
+  name: string;
+  static_ip: string;
+  static_gateway: string;
+  current_ip: string;
+  current_gateway: string;
+  dhcp: boolean;
+  vlan: number;
+}
+
+export interface LLDPNeighbor {
+  chassis_id: string;
+  port_id: string;
+  ttl: string;
+}
+
+export interface MediaDeviceTelemetry {
+  device: string;
+  channel: number;
+  type: string;
+  valid: boolean;
+  flow_count: number;
+  total_pkts: number;
+}
+
 export interface DevicePollingData {
   // /self/information
   current_version: string;
@@ -69,6 +124,35 @@ export interface DevicePollingData {
   refclk_status: string;
   grandmaster_id: string;
   offset_from_master: number;
+
+  // /self/diag/refclk - detailed PTP
+  ptp?: PTPStatus;
+
+  // /self/firmware
+  firmware_slots?: FirmwareSlot[];
+
+  // /self/license
+  licenses?: Record<string, string>;
+
+  // /self/diag/ethernet
+  ethernet?: EthernetStats;
+
+  // /self/diag/common
+  video_bandwidth_usage?: string;
+  watchdog_status?: string;
+  ipv4_packet_drop?: string;
+
+  // /self/interfaces
+  interfaces?: NetworkInterface[];
+
+  // /lldp
+  lldp?: LLDPNeighbor;
+
+  // /telemetry/devices
+  media_devices?: MediaDeviceTelemetry[];
+
+  // /sdi
+  sdi_bit_rate?: string;
 
   // SFP
   ports: PortTelemetry[];
@@ -121,6 +205,10 @@ export interface PollResult {
   port1_tx_power?: number;
   port1_rx_power?: number;
   port1_temp?: number;
+  ptp_locked?: boolean;
+  ptp_offset?: number;
+  reachable_red?: boolean;
+  reachable_blue?: boolean;
   error_message?: string;
 }
 
@@ -131,4 +219,17 @@ export interface DashboardSummary {
   warning: number;
   critical: number;
   unknown: number;
+}
+
+export interface FleetAlarm {
+  device_id: string;
+  device_name: string;
+  status: DeviceStatus;
+  message: string;
+  polled_at?: string;
+}
+
+export interface FleetAlarmsResponse {
+  alarms: FleetAlarm[];
+  total: number;
 }
