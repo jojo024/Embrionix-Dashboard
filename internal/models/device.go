@@ -31,6 +31,7 @@ type Device struct {
 	Tags        string       `json:"tags"`
 	Notes       string       `json:"notes"`
 	MonitoringEnabled bool   `gorm:"default:true" json:"monitoring_enabled"`
+	SlowResponseCount int    `gorm:"default:0" json:"slow_response_count"` // consecutive slow responses; resets on fast response
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 

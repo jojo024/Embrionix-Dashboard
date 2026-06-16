@@ -70,7 +70,7 @@ export const api = {
   getDevice: (id: string): Promise<Device> =>
     request(`/api/v1/devices/${id}`),
 
-  createDevice: (device: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<Device> =>
+  createDevice: (device: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'status' | 'last_polled_at' | 'reachable_red' | 'reachable_blue' | 'polling_data' | 'slow_response_count'>): Promise<Device> =>
     request('/api/v1/devices', { method: 'POST', body: JSON.stringify(device) }),
 
   updateDevice: (device: Device): Promise<Device> =>
