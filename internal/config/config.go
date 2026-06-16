@@ -31,10 +31,11 @@ type LoggingConfig struct {
 }
 
 type PollingConfig struct {
-	IntervalSeconds int  `mapstructure:"interval_seconds"`
-	TimeoutSeconds  int  `mapstructure:"timeout_seconds"`
-	RetryCount      int  `mapstructure:"retry_count"`
-	ICMPEnabled     bool `mapstructure:"icmp_enabled"`
+	IntervalSeconds      int  `mapstructure:"interval_seconds"`
+	TimeoutSeconds       int  `mapstructure:"timeout_seconds"`
+	RetryCount           int  `mapstructure:"retry_count"`
+	ICMPEnabled          bool `mapstructure:"icmp_enabled"`
+	HistoryRetentionDays int  `mapstructure:"history_retention_days"`
 }
 
 type CORSConfig struct {
@@ -54,6 +55,8 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("polling.interval_seconds", 30)
 	v.SetDefault("polling.timeout_seconds", 10)
 	v.SetDefault("polling.retry_count", 2)
+	v.SetDefault("polling.icmp_enabled", true)
+	v.SetDefault("polling.history_retention_days", 30)
 	v.SetDefault("cors.allowed_origins", []string{"http://localhost:5173"})
 
 	v.SetEnvPrefix("EMB")
