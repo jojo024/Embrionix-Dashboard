@@ -11,11 +11,19 @@ Active work items. See [ROADMAP.md](ROADMAP.md) for the full phased plan.
 - [ ] SFP vendor / part / serial strings (pending real-hardware verification)
 - [ ] Deeper per-essence media-flow breakdown from `/telemetry/devices`
 
+## Phase 3 — Remaining
+
+- [ ] Email (SMTP) alerting in addition to webhooks
+- [ ] Per-device threshold overrides (currently fleet-wide via config)
+- [ ] Recharts zoom/pan on monitoring charts
+- [ ] SFP optical-power degradation detection
+- [ ] Fleet temperature heatmap
+
 ## Infrastructure
 
 - [ ] Add frontend component tests (jsdom) for the alarm panel and toast system
 - [ ] Add `go test` coverage for handlers (httptest) and the emSFP client (mock server)
-- [ ] Wire `history_retention_days` into the Settings → Polling UI
+- [ ] Make alerting thresholds editable at runtime (persist to app_settings + reload poller)
 
 ## Phase 1 Polish
 
@@ -25,6 +33,17 @@ Active work items. See [ROADMAP.md](ROADMAP.md) for the full phased plan.
 ---
 
 ## Completed
+
+### Phase 3 (v0.3.0)
+- [x] Configurable alert thresholds (temperature, response time)
+- [x] Status-transition detection + alert history (`alert_events`)
+- [x] Webhook notifications (Slack-compatible / generic)
+- [x] `GET /api/v1/alerts` history + `GET /api/v1/config` effective config
+- [x] Device-card temperature sparklines (pure SVG)
+- [x] CSV export of poll history
+- [x] Settings → Alerting tab; status history in device Logs tab
+- [x] Alert history pruned with the retention job
+- [x] Notifier + threshold unit tests
 
 ### Phase 2 (v0.2.0)
 - [x] Full EM6 endpoint coverage (PTP, firmware, license, ethernet, common, interfaces, LLDP, telemetry/devices, SDI)

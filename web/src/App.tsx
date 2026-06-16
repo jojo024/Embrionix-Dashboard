@@ -24,8 +24,7 @@ export default function App() {
           <Route path="/devices/:id" element={<DeviceDetail />} />
           <Route path="/monitoring" element={<MonitoringPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/devices" element={<SettingsPage tab="devices" />} />
-          <Route path="/settings/polling" element={<SettingsPage tab="polling" />} />
+          <Route path="/settings/:tab" element={<SettingsPage />} />
         </Routes>
       </Suspense>
     </Layout>

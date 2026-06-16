@@ -3,6 +3,8 @@ import { Wifi, WifiOff, Thermometer, Wind, Activity, AlertTriangle } from 'lucid
 import { clsx } from 'clsx';
 import type { Device } from '../types/device';
 import { StatusBadge } from './StatusBadge';
+import { Sparkline } from './Sparkline';
+import { useDeviceSparkline } from '../hooks/useDevices';
 import { formatRelativeTime } from '../utils/time';
 
 interface Props {
@@ -49,6 +51,12 @@ function NetworkStatus({ label, reachable }: { label: string; reachable?: boolea
 export function DeviceCard({ device }: Props) {
   const navigate = useNavigate();
   const pd = device.polling_data;
+  const { data: spark } = useDeviceSparkline(device.id);
+  const tempSeries = (spark ?? [])
+    .slice()
+    .reverse()
+    .map(r => r.core_temp)
+    .filter((v): v is number => v != null);
 
   const borderColor = {
     online: 'border-emerald-500/20 hover:border-emerald-500/40',
@@ -99,13 +107,20 @@ export function DeviceCard({ device }: Props) {
 
         {/* Metrics row */}
         {pd && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {pd.core_temp > 0 && (
               <MetricChip
                 icon={Thermometer}
                 value={`${pd.core_temp.toFixed(1)}°C`}
                 label="temp"
                 warn={pd.core_temp > 70}
+              />
+            )}
+            {tempSeries.length > 1 && (
+              <Sparkline
+                data={tempSeries}
+                className="opacity-80"
+                stroke={pd.core_temp > 70 ? '#f59e0b' : '#38bdf8'}
               />
             )}
             {pd.fan_speed > 0 && (

@@ -2,7 +2,7 @@
 
 A production-quality monitoring and management platform for **Embrionix EM6** devices, built with Go and React.
 
-![Phase](https://img.shields.io/badge/Phase-2%20Monitoring-blue)
+![Phase](https://img.shields.io/badge/Phase-3%20Advanced%20Monitoring-blue)
 ![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -15,10 +15,11 @@ A production-quality monitoring and management platform for **Embrionix EM6** de
 - **Live Dashboard** — Card and table views with real-time status, a fleet-wide alarm panel, and an auto-refresh countdown
 - **Comprehensive Polling** — Every EM6 health/telemetry endpoint is collected: device info, system health, detailed PTP/refclk, firmware banks, licenses, control-plane ethernet counters, per-interface (e1/e2) config, LLDP neighbours, SFP DDM, media-flow telemetry, and SDI — see [API.md → EM6 endpoint coverage](API.md#em6-endpoint-coverage)
 - **Dual-Path Reachability** — Independent L4 probe of the Red and Blue management paths each cycle
-- **Historical Metrics** — SQLite time-series for temperature, fan, SFP TX/RX power, PTP offset, and response time, with a daily pruning job
-- **Per-Device Detail** — Overview (health, PTP, firmware), Interfaces (e1/e2, LLDP, ethernet, media flows), SFP Modules, Monitoring charts, and Logs tabs
+- **Historical Metrics** — SQLite time-series for temperature, fan, SFP TX/RX power, PTP offset, and response time, with device-card sparklines, CSV export, and a daily pruning job
+- **Alerting** — Configurable thresholds, a per-device status-change history, and Slack-compatible/generic webhook notifications on transitions into critical/offline
+- **Per-Device Detail** — Overview (health, PTP, firmware), Interfaces (e1/e2, LLDP, ethernet, media flows), SFP Modules, Monitoring charts, and Logs (alarms + status history) tabs
 - **Operator UX** — Toast notifications, keyboard shortcut (press **N** to add a device), live API-connectivity indicator
-- **Settings** — Polling configuration, device management, backup/restore groundwork
+- **Settings** — Polling configuration, alerting overview, device management, backup/restore groundwork
 
 ---
 
@@ -76,7 +77,14 @@ polling:
   timeout_seconds: 10           # Per-request timeout
   retry_count: 2
   icmp_enabled: true            # Independent L4 reachability probe per Red/Blue path
-  history_retention_days: 30    # Prune poll history older than this (0 = keep forever)
+  history_retention_days: 30    # Prune poll/alert history older than this (0 = keep forever)
+
+alerting:
+  temp_warning_c: 70            # Core temp (°C) raising a warning
+  temp_critical_c: 75           # Core temp (°C) raising a critical alarm
+  response_warning_ms: 2000     # API response time (ms) raising a warning
+  webhook_url: ""               # Slack-compatible/generic webhook; empty disables notifications
+  webhook_on: [critical, offline]   # fire a webhook on transition INTO these states
 
 cors:
   allowed_origins:
