@@ -44,3 +44,15 @@ type AppSetting struct {
 	Value     string    `gorm:"type:text" json:"value"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// AlertEvent records a device status transition (e.g. online -> critical) for
+// the alert history and is the payload sent to notification webhooks.
+type AlertEvent struct {
+	ID         uint         `gorm:"primaryKey;autoIncrement" json:"id"`
+	DeviceID   string       `gorm:"index;not null" json:"device_id"`
+	DeviceName string       `json:"device_name"`
+	FromStatus DeviceStatus `json:"from_status"`
+	ToStatus   DeviceStatus `json:"to_status"`
+	Message    string       `json:"message"`
+	CreatedAt  time.Time    `gorm:"index" json:"created_at"`
+}

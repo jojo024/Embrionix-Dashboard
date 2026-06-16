@@ -42,14 +42,14 @@ func main() {
 	}
 
 	// Auto-migrate models
-	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}); err != nil {
+	if err := db.AutoMigrate(&models.Device{}, &models.PollResult{}, &models.AppSetting{}, &models.AlertEvent{}); err != nil {
 		logger.Fatal("failed to migrate database", zap.Error(err))
 	}
 
 	deviceRepo := repositories.NewDeviceRepository(db)
 	pollRepo := repositories.NewPollRepository(db)
 	deviceSvc := services.NewDeviceService(deviceRepo)
-	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling)
+	pollingSvc := services.NewPollingService(deviceRepo, pollRepo, cfg.Polling, cfg.Alerting)
 
 	pollingSvc.Start()
 	pollingSvc.StartPruning()

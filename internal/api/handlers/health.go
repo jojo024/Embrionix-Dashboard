@@ -5,10 +5,39 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/embrionix/dashboard/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
 var startTime = time.Now()
+
+// ConfigHandler exposes the effective, non-sensitive runtime configuration so
+// the UI can display the active polling and alerting settings (configured via
+// config.yaml / env). The webhook URL is reported only as enabled/disabled.
+type ConfigHandler struct{ cfg *config.Config }
+
+func NewConfigHandler(cfg *config.Config) *ConfigHandler { return &ConfigHandler{cfg: cfg} }
+
+// GetConfig GET /api/v1/config
+func (h *ConfigHandler) GetConfig(c *gin.Context) {
+	p := h.cfg.Polling
+	a := h.cfg.Alerting
+	c.JSON(http.StatusOK, gin.H{
+		"polling": gin.H{
+			"interval_seconds":       p.IntervalSeconds,
+			"timeout_seconds":        p.TimeoutSeconds,
+			"icmp_enabled":           p.ICMPEnabled,
+			"history_retention_days": p.HistoryRetentionDays,
+		},
+		"alerting": gin.H{
+			"temp_warning_c":      a.TempWarningC,
+			"temp_critical_c":     a.TempCriticalC,
+			"response_warning_ms": a.ResponseWarnMs,
+			"webhook_enabled":     a.WebhookURL != "",
+			"webhook_on":          a.WebhookOn,
+		},
+	})
+}
 
 // HealthCheck GET /health
 func HealthCheck(c *gin.Context) {

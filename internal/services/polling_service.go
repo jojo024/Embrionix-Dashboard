@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,6 +18,8 @@ type PollingService struct {
 	deviceRepo *repositories.DeviceRepository
 	pollRepo   *repositories.PollRepository
 	pollCfg    config.PollingConfig
+	alertCfg   config.AlertingConfig
+	notifier   *Notifier
 
 	mu      sync.RWMutex
 	results map[string]*pollState // keyed by device ID
@@ -41,11 +44,14 @@ func NewPollingService(
 	deviceRepo *repositories.DeviceRepository,
 	pollRepo *repositories.PollRepository,
 	cfg config.PollingConfig,
+	alertCfg config.AlertingConfig,
 ) *PollingService {
 	return &PollingService{
 		deviceRepo: deviceRepo,
 		pollRepo:   pollRepo,
 		pollCfg:    cfg,
+		alertCfg:   alertCfg,
+		notifier:   NewNotifier(alertCfg.WebhookURL, alertCfg.WebhookOn),
 		results:    make(map[string]*pollState),
 		stop:       make(chan struct{}),
 	}
@@ -100,6 +106,10 @@ func (s *PollingService) StartPruning() {
 func (s *PollingService) prune(retention time.Duration) {
 	if err := s.pollRepo.PruneOlderThan(retention); err != nil {
 		logger.Error("history pruning failed", zap.Error(err))
+		return
+	}
+	if err := s.pollRepo.PruneAlertsOlderThan(retention); err != nil {
+		logger.Error("alert pruning failed", zap.Error(err))
 		return
 	}
 	logger.Debug("history pruned", zap.Duration("older_than", retention))
@@ -186,7 +196,7 @@ func (s *PollingService) pollDevice(device models.Device) {
 		state.Reachable = true
 		state.Data = pollingData
 
-		state.Status = deriveStatus(pollingData)
+		state.Status = s.deriveStatus(pollingData, responseMs)
 
 		pollResult.Reachable = true
 		temp := pollingData.CoreTemp
@@ -228,11 +238,61 @@ func (s *PollingService) pollDevice(device models.Device) {
 	}
 
 	s.mu.Lock()
+	prev := s.results[device.ID]
 	s.results[device.ID] = state
 	s.mu.Unlock()
 
+	// Detect a status transition and record/notify. The first poll (no prior
+	// state) and the unknown->X warm-up are not treated as alertable events.
+	if prev != nil && prev.Status != "" && prev.Status != state.Status {
+		s.handleTransition(device, prev.Status, state.Status)
+	}
+
 	if err := s.pollRepo.Save(pollResult); err != nil {
 		logger.Error("failed to save poll result", zap.Error(err))
+	}
+}
+
+// handleTransition records a status change as an AlertEvent and fires a webhook
+// when the destination status is configured for notification.
+func (s *PollingService) handleTransition(device models.Device, from, to models.DeviceStatus) {
+	event := models.AlertEvent{
+		DeviceID:   device.ID,
+		DeviceName: device.Name,
+		FromStatus: from,
+		ToStatus:   to,
+		Message:    transitionMessage(device, to),
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.pollRepo.SaveAlert(&event); err != nil {
+		logger.Error("failed to save alert event", zap.Error(err))
+	}
+	logger.Info("device status transition",
+		zap.String("device", device.Name),
+		zap.String("from", string(from)),
+		zap.String("to", string(to)),
+	)
+
+	if s.notifier.ShouldNotify(to) {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			s.notifier.Notify(ctx, event)
+		}()
+	}
+}
+
+// transitionMessage produces a human summary for an alert event, surfacing the
+// device's active alarms where relevant.
+func transitionMessage(device models.Device, to models.DeviceStatus) string {
+	switch to {
+	case models.StatusOffline:
+		return "Device became unreachable"
+	case models.StatusOnline:
+		return "Device recovered to healthy"
+	default:
+		return fmt.Sprintf("Device is now %s", to)
 	}
 }
 
@@ -299,16 +359,32 @@ func (s *PollingService) probeDualPath(
 }
 
 // deriveStatus maps live polling data to a device status using all health
-// signals collected from the EM6 (alarms, temperature, PTP lock, bandwidth).
-func deriveStatus(pd *models.DevicePollingData) models.DeviceStatus {
+// signals collected from the EM6 (alarms, temperature, PTP lock, bandwidth)
+// against the configured alert thresholds.
+func (s *PollingService) deriveStatus(pd *models.DevicePollingData, responseMs int64) models.DeviceStatus {
+	a := s.alertCfg
 	status := models.StatusOnline
 	if len(pd.Alarms) > 0 {
 		status = models.StatusWarning
 	}
 
+	// Warning-level threshold checks.
+	if a.TempWarningC > 0 && pd.CoreTemp >= a.TempWarningC && pd.CoreTemp < a.TempCriticalC {
+		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature high (≥%.0f°C)", a.TempWarningC))
+		if status == models.StatusOnline {
+			status = models.StatusWarning
+		}
+	}
+	if a.ResponseWarnMs > 0 && responseMs >= a.ResponseWarnMs {
+		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Slow API response (%dms)", responseMs))
+		if status == models.StatusOnline {
+			status = models.StatusWarning
+		}
+	}
+
 	// Critical conditions escalate above warning.
-	if pd.CoreTemp > 75 {
-		pd.Alarms = append(pd.Alarms, "Core temperature critical (>75°C)")
+	if a.TempCriticalC > 0 && pd.CoreTemp >= a.TempCriticalC {
+		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature critical (≥%.0f°C)", a.TempCriticalC))
 		status = models.StatusCritical
 	}
 	return status
