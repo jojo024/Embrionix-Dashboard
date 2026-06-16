@@ -10,7 +10,7 @@ import {
   ResponsiveContainer, Legend
 } from 'recharts'
 import { useDevice, useDeviceHistory, usePollDevice, useAlertHistory, useAuditLog } from '../hooks/useDevices'
-import { api } from '../api/client'
+import { downloadWithAuth } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
 import { DeviceConfigTab } from '../components/DeviceConfigTab'
 import { useToast } from '../components/Toast'
@@ -391,14 +391,13 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
     <div className="space-y-6">
       {/* Export */}
       <div className="flex justify-end">
-        <a
-          href={api.historyCsvUrl(deviceId)}
+        <button
           className="btn-secondary"
-          download
+          onClick={() => downloadWithAuth(`/api/v1/devices/${deviceId}/history.csv`, `history-${deviceId}.csv`)}
         >
           <Download className="w-4 h-4" />
           Export CSV
-        </a>
+        </button>
       </div>
 
       {/* Temperature chart */}

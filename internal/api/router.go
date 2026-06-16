@@ -69,6 +69,7 @@ func NewRouter(
 	read.GET("/alerts", monHandler.GetAlertHistory)
 	read.GET("/settings/:key", settingsHandler.GetSetting)
 	read.GET("/config", configHandler.GetConfig)
+	read.GET("/export/ansible", deviceHandler.GetAnsibleInventory)
 
 	// --- Writes & device actions (operator+) ---
 	write.POST("/devices", deviceHandler.CreateDevice)

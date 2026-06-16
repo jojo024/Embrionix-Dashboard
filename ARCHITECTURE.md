@@ -130,6 +130,19 @@ via the shared `stop` channel:
 - **History pruner** — daily `time.Ticker`; deletes `poll_results` older than
   `polling.history_retention_days` (skipped when `0`).
 
+### Minimal-impact polling
+
+The poll deliberately protects the device's small embedded HTTP server:
+
+- **Tiered fetch** — dynamic health (~6 GETs) every cycle; static/heavy endpoints
+  only every `polling.full_every` cycle (carried forward in between). Alarms are
+  rebuilt once over the merged data so light polls stay correct.
+- **HTTP keep-alive within a poll** — the poll's GETs reuse one TCP connection.
+- **Bounded concurrency** — `polling.max_concurrent_polls` caps simultaneous
+  device polls so a large fleet doesn't burst.
+
+Full rationale and numbers in [PERFORMANCE.md](PERFORMANCE.md).
+
 ### Reachability probe
 
 Dual-path reachability uses a **TCP connect** to the management port rather than

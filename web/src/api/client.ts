@@ -19,6 +19,26 @@ export function clearAuthToken() {
 // Raised on a 401 so the auth layer can redirect to login.
 export class UnauthorizedError extends Error {}
 
+// downloadWithAuth fetches a file endpoint with the bearer token attached and
+// saves it via a blob, so downloads work when auth is enabled (a plain <a>
+// navigation cannot carry the Authorization header).
+export async function downloadWithAuth(path: string, filename: string): Promise<void> {
+  const token = getAuthToken();
+  const res = await fetch(`${BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const res = await fetch(`${BASE}${path}`, {
