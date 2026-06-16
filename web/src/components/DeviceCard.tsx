@@ -55,6 +55,7 @@ export function DeviceCard({ device }: Props) {
   const pd = device.polling_data;
   const { data: spark } = useDeviceSparkline(device.id);
   const [dismissedAlarms, setDismissedAlarms] = useState<boolean>(false);
+  const [showTempGraph, setShowTempGraph] = useState<boolean>(false);
 
   const tempSeries = (spark ?? [])
     .slice()
@@ -128,14 +129,20 @@ export function DeviceCard({ device }: Props) {
         {pd && (
           <div className="flex flex-wrap items-center gap-1.5">
             {pd.core_temp > 0 && (
-              <MetricChip
-                icon={Thermometer}
-                value={`${pd.core_temp.toFixed(1)}°C`}
-                label="temp"
-                warn={pd.core_temp > 70}
-              />
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowTempGraph(!showTempGraph) }}
+                className="hover:opacity-75 transition-opacity cursor-pointer"
+                title="Click to toggle temperature graph"
+              >
+                <MetricChip
+                  icon={Thermometer}
+                  value={`${pd.core_temp.toFixed(1)}°C`}
+                  label="temp"
+                  warn={pd.core_temp > 70}
+                />
+              </button>
             )}
-            {tempSeries.length > 1 && (
+            {showTempGraph && tempSeries.length > 1 && (
               <Sparkline
                 data={tempSeries}
                 className="opacity-80"

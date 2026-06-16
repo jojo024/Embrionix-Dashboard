@@ -215,11 +215,12 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 	state.ResponseMs = responseMs
 	pollResult.ResponseMs = responseMs
 
-	// Track consecutive slow responses. Threshold is 5 seconds or 50% of timeout,
-	// whichever is lower. Mark as slow after 3 consecutive slow responses.
-	const SlowThresholdMs = 5000 // 5 seconds
+	// Track consecutive slow responses. These devices typically respond in 2-3 seconds,
+	// so threshold is 6 seconds or 75% of timeout, whichever is lower.
+	// Mark as slow after 3 consecutive slow responses.
+	const SlowThresholdMs = 6000 // 6 seconds
 	slowThreshold := int64(SlowThresholdMs)
-	if timeoutMs := int64(s.pollCfg.TimeoutSeconds) * 1000 / 2; timeoutMs < slowThreshold {
+	if timeoutMs := int64(s.pollCfg.TimeoutSeconds) * 1000 * 3 / 4; timeoutMs < slowThreshold {
 		slowThreshold = timeoutMs
 	}
 
