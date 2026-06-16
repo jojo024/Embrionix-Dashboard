@@ -2,6 +2,8 @@ import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
+import { Login } from './pages/Login'
+import { useAuth } from './contexts/AuthContext'
 
 // Lazy-load heavier routes (DeviceDetail and MonitoringPage pull in recharts)
 // so they are split out of the initial bundle.
@@ -15,6 +17,15 @@ function RouteFallback() {
 }
 
 export default function App() {
+  const { loading, authenticated } = useAuth()
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-surface-950 text-sm text-slate-500">Loading…</div>
+  }
+  if (!authenticated) {
+    return <Login />
+  }
+
   return (
     <Layout>
       <Suspense fallback={<RouteFallback />}>

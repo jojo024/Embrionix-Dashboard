@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Server, Settings, Activity, Menu, X, Radio } from 'lucide-react';
+import { LayoutDashboard, Server, Settings, Activity, Menu, X, Radio, LogOut, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useApiStatus } from '../hooks/useApiStatus';
+import { useAuth } from '../contexts/AuthContext';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -17,6 +18,7 @@ export function Layout({ children }: Props) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const apiConnected = useApiStatus();
+  const { authEnabled, username, role, logout } = useAuth();
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
@@ -91,6 +93,16 @@ export function Layout({ children }: Props) {
             <span className={clsx('status-dot', apiConnected ? 'status-online' : 'status-offline')} />
             <span>{apiConnected ? 'API connected' : 'API disconnected'}</span>
           </div>
+          {authEnabled && username && (
+            <div className="flex items-center gap-2 ml-3 pl-3 border-l border-surface-700">
+              <UserCircle className="w-4 h-4 text-slate-500" />
+              <span className="text-xs text-slate-300">{username}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-800 text-slate-400 capitalize">{role}</span>
+              <button className="btn-ghost p-1.5" onClick={logout} title="Sign out">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
