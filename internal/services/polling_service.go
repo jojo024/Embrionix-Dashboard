@@ -215,6 +215,27 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 	state.ResponseMs = responseMs
 	pollResult.ResponseMs = responseMs
 
+	// Track consecutive slow responses. Threshold is 5 seconds or 50% of timeout,
+	// whichever is lower. Mark as slow after 3 consecutive slow responses.
+	const SlowThresholdMs = 5000 // 5 seconds
+	slowThreshold := int64(SlowThresholdMs)
+	if timeoutMs := int64(s.pollCfg.TimeoutSeconds) * 1000 / 2; timeoutMs < slowThreshold {
+		slowThreshold = timeoutMs
+	}
+
+	if err == nil && responseMs > slowThreshold {
+		device.SlowResponseCount++
+	} else if err == nil {
+		// Reset on a fast response
+		device.SlowResponseCount = 0
+	}
+	// On error, keep the slow count (error = effectively slow)
+
+	// Update slow response count in DB
+	if err := s.deviceRepo.Update(&device); err != nil {
+		logger.Warn("failed to update device slow response count", zap.Error(err))
+	}
+
 	if err != nil {
 		state.Reachable = false
 		state.Status = models.StatusOffline
