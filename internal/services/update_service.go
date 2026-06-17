@@ -234,11 +234,17 @@ func (s *UpdateService) Apply(ctx context.Context) error {
 	return nil
 }
 
-// relaunch starts a fresh instance from the (now-updated) binary and exits the
-// current process. The new instance binds the port with a retry, tolerating the
-// brief overlap while this process releases it.
+// relaunch restarts the process onto the freshly-swapped binary. In "exit" mode
+// it simply exits and relies on a service manager (systemd/NSSM) to restart it;
+// otherwise it spawns a fresh instance itself (for unsupervised runs). The new
+// instance binds the port with a retry, tolerating the brief overlap.
 func (s *UpdateService) relaunch() {
 	time.Sleep(1500 * time.Millisecond) // let the HTTP response flush
+
+	if strings.EqualFold(s.cfg.RestartMode, "exit") {
+		logger.Info("update: exiting for service-manager restart (restart_mode=exit)")
+		os.Exit(0)
+	}
 
 	args := []string{}
 	if len(os.Args) > 1 {

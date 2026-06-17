@@ -109,6 +109,7 @@ updates:
   enabled: true                 # check GitHub Releases and allow admin in-app self-update
   repo: "jojo024/Embrionix-Dashboard"  # GitHub owner/name to check
   check_interval_hours: 6       # how often to poll for new releases
+  restart_mode: "self"          # "exit" when running under a service manager (see DEPLOYMENT.md)
 
 auth:
   enabled: false                # OFF by default — no login. Set true to require authentication.
@@ -170,6 +171,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale.
 | [API.md](API.md) | REST API reference |
 | [ROADMAP.md](ROADMAP.md) | Phased feature plan |
 | [PERFORMANCE.md](PERFORMANCE.md) | Network/device impact analysis & tuning |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Production deployment, services, updates, backups |
 | [INSTALLATION.md](INSTALLATION.md) | Detailed install guide |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
