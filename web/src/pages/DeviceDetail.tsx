@@ -656,8 +656,8 @@ export function DeviceDetail() {
 
   return (
     <div className="space-y-5">
-      {/* Breadcrumb + header */}
-      <div className="flex items-start justify-between gap-4">
+      {/* Breadcrumb + header (sticky when scrolling) */}
+      <div className="sticky top-0 z-30 bg-surface-900/95 backdrop-blur supports-[backdrop-filter]:bg-surface-900/80 -mx-5 px-5 py-4 mb-1 border-b border-surface-800 flex items-start justify-between gap-4">
         <div>
           <button
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 mb-3 transition-colors"
