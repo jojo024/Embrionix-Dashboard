@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — collapsible Active Alarms panel
+- The dashboard's **Active Alarms** panel can now be collapsed/expanded by clicking
+  its header (the alarm count stays visible). State is remembered across reloads
+  (localStorage), keeping the dashboard uncluttered.
+
 ### Added — per-interface LLDP neighbours
 - `/lldp` now parses both response shapes (single object **and** the per-interface
   **array**), capturing each neighbour's local `interface` along with chassis /
