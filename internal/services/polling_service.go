@@ -28,6 +28,9 @@ type PollingService struct {
 
 	cycle uint64 // incremented each pollAll; drives the full-vs-light decision
 
+	gateMu   sync.Mutex
+	lastPoll map[string]time.Time // per-device last poll time; enforces the min interval
+
 	stop chan struct{}
 	wg   sync.WaitGroup
 }
@@ -44,12 +47,23 @@ type pollState struct {
 	Data           *models.DevicePollingData
 }
 
+// MinPollIntervalSeconds is the hard floor on how often a device is polled, to
+// keep the load on the device's small embedded HTTP server low regardless of
+// configuration. The configured interval is clamped up to this if set lower.
+const MinPollIntervalSeconds = 5
+
 func NewPollingService(
 	deviceRepo *repositories.DeviceRepository,
 	pollRepo *repositories.PollRepository,
 	cfg config.PollingConfig,
 	alertCfg config.AlertingConfig,
 ) *PollingService {
+	if cfg.IntervalSeconds < MinPollIntervalSeconds {
+		logger.Warn("polling interval below the minimum; clamping",
+			zap.Int("configured", cfg.IntervalSeconds),
+			zap.Int("min", MinPollIntervalSeconds))
+		cfg.IntervalSeconds = MinPollIntervalSeconds
+	}
 	return &PollingService{
 		deviceRepo: deviceRepo,
 		pollRepo:   pollRepo,
@@ -57,8 +71,31 @@ func NewPollingService(
 		alertCfg:   alertCfg,
 		notifier:   NewNotifier(alertCfg.WebhookURL, alertCfg.WebhookOn),
 		results:    make(map[string]*pollState),
+		lastPoll:   make(map[string]time.Time),
 		stop:       make(chan struct{}),
 	}
+}
+
+// reservePoll enforces the per-device minimum poll interval across all poll
+// paths (scheduled and on-demand). It returns false (with the remaining wait)
+// when the device was polled within MinPollIntervalSeconds, otherwise it records
+// the attempt and returns true.
+func (s *PollingService) reservePoll(deviceID string) (bool, time.Duration) {
+	min := time.Duration(MinPollIntervalSeconds) * time.Second
+	s.gateMu.Lock()
+	defer s.gateMu.Unlock()
+	if last, ok := s.lastPoll[deviceID]; ok {
+		if since := time.Since(last); since < min {
+			return false, min - since
+		}
+	}
+	s.lastPoll[deviceID] = time.Now()
+	return true, 0
+}
+
+// AllowManualPoll is the public guard for on-demand ("Poll Now") requests.
+func (s *PollingService) AllowManualPoll(deviceID string) (bool, time.Duration) {
+	return s.reservePoll(deviceID)
 }
 
 // Notifier returns the alerting webhook notifier so other services (e.g. the
@@ -151,8 +188,13 @@ func (s *PollingService) pollAll() {
 	}
 	sem := make(chan struct{}, limit)
 
+	// Stagger poll starts across (up to half) the cycle so requests are spread out
+	// in time rather than fired in one burst — gentler on the switch fabric and the
+	// devices. Capped per device so small fleets aren't needlessly delayed.
+	stagger := staggerStep(len(devices), s.pollCfg.IntervalSeconds)
+
 	var wg sync.WaitGroup
-	for _, d := range devices {
+	for i, d := range devices {
 		d := d
 		wg.Add(1)
 		sem <- struct{}{}
@@ -161,12 +203,38 @@ func (s *PollingService) pollAll() {
 			defer func() { <-sem }()
 			s.pollDevice(d, full)
 		}()
+		if stagger > 0 && i < len(devices)-1 {
+			select {
+			case <-time.After(stagger):
+			case <-s.stop:
+				wg.Wait()
+				return
+			}
+		}
 	}
 	wg.Wait()
 }
 
+// staggerStep returns the delay to insert between starting each device's poll so
+// that n devices are spread across about half the interval, capped at 250ms each.
+func staggerStep(n, intervalSeconds int) time.Duration {
+	if n <= 1 {
+		return 0
+	}
+	spread := time.Duration(intervalSeconds) * time.Second / 2
+	step := spread / time.Duration(n)
+	if step > 250*time.Millisecond {
+		step = 250 * time.Millisecond
+	}
+	return step
+}
+
 func (s *PollingService) pollDevice(device models.Device, full bool) {
 	if device.ManagementIPRed == "" && device.ManagementIPBlue == "" {
+		return
+	}
+	// Honour the per-device minimum interval (e.g. skip if a manual poll just ran).
+	if ok, _ := s.reservePoll(device.ID); !ok {
 		return
 	}
 
