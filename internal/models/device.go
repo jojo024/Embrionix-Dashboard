@@ -96,7 +96,8 @@ type DevicePollingData struct {
 	Interfaces []NetworkInterface `json:"interfaces,omitempty"`
 
 	// /lldp - discovered neighbour
-	LLDP *LLDPNeighbor `json:"lldp,omitempty"`
+	LLDP          *LLDPNeighbor  `json:"lldp,omitempty"`           // primary neighbour (first), kept for compatibility
+	LLDPNeighbors []LLDPNeighbor `json:"lldp_neighbors,omitempty"` // all neighbours, one per local interface
 
 	// /telemetry/devices - media flow packet counters
 	MediaDevices []MediaDeviceTelemetry `json:"media_devices,omitempty"`
@@ -158,8 +159,12 @@ type NetworkInterface struct {
 	VLAN           int    `json:"vlan"`
 }
 
-// LLDPNeighbor holds the discovered LLDP neighbour from /lldp.
+// LLDPNeighbor holds a discovered LLDP neighbour from /lldp. Interface is the
+// local physical interface the advertisement was received on (matches the SFP
+// port number on multi-port devices). The protocol exposes no neighbour
+// hostname — chassis (a MAC) is the only identifier.
 type LLDPNeighbor struct {
+	Interface int    `json:"interface"`
 	ChassisID string `json:"chassis_id"`
 	PortID    string `json:"port_id"`
 	TTL       string `json:"ttl"`

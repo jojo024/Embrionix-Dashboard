@@ -49,6 +49,33 @@ func TestCarrySlowDataAndRebuildAlarms(t *testing.T) {
 	}
 }
 
+func TestParseLLDPNeighbors(t *testing.T) {
+	// Array form (multi-port device) — preserves per-interface mapping.
+	arr := []byte(`[
+		{"interface":3,"chassis":"28:99:3a:e7:56:e2","port":"Ethernet35","ttl":"120"},
+		{"interface":5,"chassis":"28:99:3a:e7:56:e2","port":"Ethernet40","ttl":"120"}
+	]`)
+	got := parseLLDPNeighbors(arr)
+	if len(got) != 2 {
+		t.Fatalf("array form: expected 2 neighbors, got %d", len(got))
+	}
+	if got[0].Interface != 3 || got[0].PortID != "Ethernet35" || got[1].Interface != 5 {
+		t.Errorf("array form: per-interface fields wrong: %+v", got)
+	}
+
+	// Single-object form (one-interface device).
+	single := []byte(`{"chassis":"10:62:eb:d1:e9:00","port":"eth1/0/26","ttl":"120"}`)
+	got = parseLLDPNeighbors(single)
+	if len(got) != 1 || got[0].ChassisID != "10:62:eb:d1:e9:00" || got[0].PortID != "eth1/0/26" {
+		t.Errorf("single form parsed wrong: %+v", got)
+	}
+
+	// Empty / missing.
+	if n := parseLLDPNeighbors(nil); n != nil {
+		t.Errorf("nil input should yield no neighbors, got %+v", n)
+	}
+}
+
 func TestPingSucceeded(t *testing.T) {
 	winReply := "Reply from 192.168.1.50: bytes=32 time=1ms TTL=64"
 	winUnreachable := "Reply from 192.168.1.1: Destination host unreachable."
