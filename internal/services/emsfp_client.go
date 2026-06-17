@@ -409,8 +409,8 @@ func (c *EmsfpClient) Poll(ctx context.Context, full bool, prev *models.DevicePo
 			data.Ports = append(data.Ports, models.PortTelemetry{
 				Port:        p.Port,
 				Temperature: p.Temperature,
-				TxPowerUW:   p.TxPower,
-				RxPowerUW:   p.RxPower,
+				TxPower:     p.TxPower,
+				RxPower:     p.RxPower,
 			})
 		}
 	}
