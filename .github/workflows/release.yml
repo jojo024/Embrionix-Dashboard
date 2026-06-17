@@ -81,6 +81,7 @@ jobs:
           files: |
             release/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }}
             release/embrionix-dashboard-${{ matrix.suffix }}.sha256
+          draft: true
           generate_release_notes: true
 
   # Aggregate the per-asset checksums into a single checksums.txt that the
@@ -105,3 +106,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: checksums.txt
+          draft: false
