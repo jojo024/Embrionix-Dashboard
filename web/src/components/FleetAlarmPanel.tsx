@@ -1,13 +1,28 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ShieldCheck, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ShieldCheck, ChevronRight, ChevronDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useFleetAlarms } from '../hooks/useDevices'
 import { formatRelativeTime } from '../utils/time'
 
+const COLLAPSE_KEY = 'emb:alarms-collapsed'
+
 // FleetAlarmPanel shows every active alarm across the fleet on the dashboard.
+// The list can be collapsed (state remembered) to keep the dashboard uncluttered.
 export function FleetAlarmPanel() {
   const { data, isLoading } = useFleetAlarms()
   const alarms = data?.alarms ?? []
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem(COLLAPSE_KEY) === '1',
+  )
+
+  const toggle = () => {
+    setCollapsed(c => {
+      const next = !c
+      localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
+      return next
+    })
+  }
 
   if (isLoading) {
     return <div className="card p-4 h-24 animate-pulse" />
@@ -29,13 +44,24 @@ export function FleetAlarmPanel() {
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700">
+      <button
+        onClick={toggle}
+        className={clsx(
+          'w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface-800/50 transition-colors',
+          !collapsed && 'border-b border-surface-700',
+        )}
+        title={collapsed ? 'Expand active alarms' : 'Collapse active alarms'}
+      >
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-400" />
           <h3 className="text-sm font-semibold text-slate-200">Active Alarms</h3>
           <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">{alarms.length}</span>
         </div>
-      </div>
+        {collapsed
+          ? <ChevronRight className="w-4 h-4 text-slate-500" />
+          : <ChevronDown className="w-4 h-4 text-slate-500" />}
+      </button>
+      {!collapsed && (
       <div className="divide-y divide-surface-800 max-h-72 overflow-y-auto">
         {alarms.map((a, i) => (
           <Link
@@ -58,6 +84,7 @@ export function FleetAlarmPanel() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   )
 }
