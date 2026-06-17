@@ -10,7 +10,17 @@ Browser (React SPA)  ←→  Go HTTP Server  ←→  SQLite DB
                     Embrionix EM6 Devices (emSFP REST API)
 ```
 
-The Go server serves both the REST API and (in production) the static React bundle. The polling engine runs as background goroutines concurrent with the HTTP server.
+The Go server serves both the REST API and the React bundle, which is **embedded
+into the binary** via `go:embed` (`internal/webui`) and served with SPA fallback —
+so a production deployment is a single self-contained, self-updatable executable.
+The polling engine runs as background goroutines concurrent with the HTTP server.
+
+**In-app updates.** `UpdateService` periodically checks the configured GitHub repo's
+latest Release. When a newer tag exists, the UI shows an Update pop-up; an admin can
+trigger a self-update that downloads the matching binary, verifies its SHA-256, swaps
+it in place (`minio/selfupdate`) and relaunches. The new process binds the port with a
+short retry so it can take over as the old one exits. Build version is a single source
+of truth in `internal/version` (injected via ldflags at release time).
 
 ---
 

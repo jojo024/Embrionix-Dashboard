@@ -1,7 +1,10 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/embrionix/dashboard/internal/api/handlers"
 	"github.com/embrionix/dashboard/internal/api/middleware"
@@ -9,6 +12,7 @@ import (
 	"github.com/embrionix/dashboard/internal/models"
 	"github.com/embrionix/dashboard/internal/repositories"
 	"github.com/embrionix/dashboard/internal/services"
+	"github.com/embrionix/dashboard/internal/webui"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,6 +24,7 @@ func NewRouter(
 	authSvc *services.AuthService,
 	userRepo *repositories.UserRepository,
 	reportSvc *services.ReportService,
+	updateSvc *services.UpdateService,
 ) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	r := gin.New()
@@ -30,9 +35,30 @@ func NewRouter(
 	// Health endpoint
 	r.GET("/health", handlers.HealthCheck)
 
-	// Serve embedded frontend (in production, the web/dist is embedded)
+	// Serve the embedded frontend (single self-contained binary). Unmatched API
+	// paths get a JSON 404; everything else falls back to the SPA's index.html.
+	staticFS := webui.FS()
+	hasUI := webui.Available()
+	fileServer := http.FileServer(http.FS(staticFS))
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		p := c.Request.URL.Path
+		if strings.HasPrefix(p, "/api/") || p == "/health" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		if !hasUI {
+			c.JSON(http.StatusNotFound, gin.H{"error": "frontend not built into this binary"})
+			return
+		}
+		// Serve the requested asset if it exists; otherwise SPA-fallback to index.html.
+		clean := strings.TrimPrefix(path.Clean(p), "/")
+		if clean == "" {
+			clean = "index.html"
+		}
+		if _, err := fs.Stat(staticFS, clean); err != nil {
+			c.Request.URL.Path = "/"
+		}
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 
 	deviceHandler := handlers.NewDeviceHandler(deviceSvc, pollingSvc)
@@ -43,6 +69,7 @@ func NewRouter(
 	backupHandler := handlers.NewBackupHandler(deviceSvc, pollRepo, configWriteHandler, cfg.Polling.TimeoutSeconds)
 	authHandler := handlers.NewAuthHandler(authSvc, userRepo)
 	reportHandler := handlers.NewReportHandler(reportSvc)
+	updateHandler := handlers.NewUpdateHandler(updateSvc)
 
 	v1 := r.Group("/api/v1")
 
@@ -73,6 +100,7 @@ func NewRouter(
 	read.GET("/config", configHandler.GetConfig)
 	read.GET("/export/ansible", deviceHandler.GetAnsibleInventory)
 	read.GET("/report.pdf", reportHandler.GetReportPDF)
+	read.GET("/version", updateHandler.GetVersion)
 
 	// --- Writes & device actions (operator+) ---
 	write.POST("/devices", deviceHandler.CreateDevice)
@@ -89,12 +117,14 @@ func NewRouter(
 	write.POST("/bulk/config", backupHandler.BulkConfig)
 	write.GET("/backup", backupHandler.BackupDatabase) // full DB export → operator+
 	write.PUT("/settings/:key", settingsHandler.SetSetting)
+	write.POST("/update/check", updateHandler.CheckUpdate) // force a release re-check
 
-	// --- User management (admin only) ---
+	// --- User management & self-update (admin only) ---
 	admin.GET("/users", authHandler.ListUsers)
 	admin.POST("/users", authHandler.CreateUser)
 	admin.PUT("/users/:id", authHandler.UpdateUser)
 	admin.DELETE("/users/:id", authHandler.DeleteUser)
+	admin.POST("/update", updateHandler.ApplyUpdate) // self-update + restart
 
 	return r
 }

@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — in-app updates & self-contained binary
+- **Single self-contained binary**: the React frontend is now embedded into the
+  Go binary (`go:embed`) and served by it (with SPA fallback). The server is one
+  self-updatable artifact; the API client is same-origin by default.
+- **Update notification pop-up**: when a newer GitHub Release exists, a pop-up
+  shows `current → latest` with release notes and **Update** / **Dismiss**.
+  Dismiss is remembered per-version (localStorage).
+- **Admin self-update**: the Update button (admin-only) downloads the matching
+  release binary, verifies its SHA-256 against `checksums.txt`, swaps the running
+  binary, and relaunches — the page reloads automatically when the server is back.
+- **Build-time version**: a single source of truth in `internal/version`
+  (injected via ldflags), surfaced at `/api/v1/version` and `/health` and in the
+  About page (replaces the hardcoded version).
+- New config `updates` block (`enabled`, `repo`, `check_interval_hours`); endpoints
+  `GET /api/v1/version`, `POST /api/v1/update/check` (operator+), `POST /api/v1/update` (admin).
+- Release workflow now publishes **raw per-platform binaries + `checksums.txt`**
+  (the self-updater's download targets) instead of tarballs.
+
 ### Fixed — Issue #2: Device add validation & auto-fetch
 - **Required management IPs**: When creating a device, at least one of Red or Blue
   management IP is now required (enforced both server and client side).

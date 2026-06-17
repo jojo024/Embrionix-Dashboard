@@ -34,6 +34,11 @@ reports:
                                  #   this only controls the scheduled webhook delivery of a text summary.
   cron: "0 8 * * 1"              # standard 5-field cron — default: Mondays at 08:00. Needs alerting.webhook_url.
 
+updates:
+  enabled: true                  # check GitHub Releases for a newer version and allow admin self-update
+  repo: "jojo024/Embrionix-Dashboard"   # GitHub "owner/name" to check for releases
+  check_interval_hours: 6        # how often to poll for new releases (min 1h)
+
 auth:
   enabled: false                 # OFF by default — the dashboard runs with no login.
   jwt_secret: ""                 # REQUIRED when enabled (set a long random string / EMB_AUTH_JWT_SECRET)
