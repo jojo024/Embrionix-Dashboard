@@ -227,7 +227,7 @@ export function DeviceCard({ device }: Props) {
           <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-md px-2 py-1">
             <Zap className="w-3 h-3 text-orange-400 mt-0.5 shrink-0" />
             <div className="flex-1 text-xs text-orange-300">
-              {pd.power_warnings.map((w, i) => (
+              {pd.power_warnings.map((w: string, i: number) => (
                 <div key={i}>{w}</div>
               ))}
             </div>

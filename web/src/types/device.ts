@@ -160,6 +160,7 @@ export interface DevicePollingData {
   ports: PortTelemetry[];
   port_details: PortDetail[];
   alarms: string[];
+  power_warnings?: string[];  // SFP ports with zero power on active links
 }
 
 export interface Device {
