@@ -1,6 +1,6 @@
 # Embrionix Dashboard
 
-A production-quality monitoring and management platform for **Embrionix EM6** devices, built with Go and React.
+A production-quality monitoring and management platform for **Embrionix emFusion6** devices, built with Go and React.
 
 ![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
