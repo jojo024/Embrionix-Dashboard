@@ -29,6 +29,9 @@ alerting:
   response_warning_ms: 6000      # API response time (ms) counted as "slow"; a warning is only raised after
                                  #   several consecutive slow polls (these devices are routinely 2-3s, so a
                                  #   single slow poll never warns)
+  tx_power_warn_dbm: -6          # SFP TX optical power (dBm) below this raises a warning (0 disables)
+  tx_power_crit_dbm: -9          # SFP TX optical power (dBm) below this raises a critical alarm
+  tx_power_ports: [3, 5]         # ports the TX-power thresholds apply to (the SFP signal ports)
   webhook_url: ""                # generic/Slack-compatible incoming webhook; empty disables notifications
   webhook_on:                    # fire a webhook when a device transitions INTO one of these states
     - critical
