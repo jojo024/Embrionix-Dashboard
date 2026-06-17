@@ -1,0 +1,6 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Embrionix Dashboard</title></head>
+<body style="font-family:sans-serif;background:#0f172a;color:#e2e8f0;padding:2rem">
+<h1>Embrionix Dashboard</h1>
+<p>The frontend was not built into this binary. Build it with <code>npm run build</code> and copy <code>web/dist</code> into <code>internal/webui/dist</code>, or use the Vite dev server during development.</p>
+</body></html>

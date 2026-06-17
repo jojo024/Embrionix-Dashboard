@@ -50,16 +50,29 @@ The frontend dev server proxies `/api` and `/health` to the Go backend on port 8
 
 ### Build for production
 
+The frontend is **embedded into the binary** (`go:embed`), so production is a
+single self-contained, self-updatable executable that serves both the UI and API.
+
 ```bash
-# Build frontend into web/dist/
+# 1. Build the frontend
 cd web && npm run build && cd ..
 
-# Build backend binary
-go build -o embrionix-dashboard ./cmd/server/
+# 2. Copy it into the embed directory
+rm -rf internal/webui/dist && mkdir -p internal/webui/dist
+cp -r web/dist/* internal/webui/dist/
 
-# Run
+# 3. Build the binary (inject the version)
+go build -ldflags="-X github.com/embrionix/dashboard/internal/version.Version=v0.6.0" \
+  -o embrionix-dashboard ./cmd/server/
+
+# 4. Run — UI + API on one port
 ./embrionix-dashboard configs/config.yaml
 ```
+
+Tagging a release (`git tag v0.6.0 && git push --tags`) runs the **Release**
+workflow, which does all of the above for every platform and publishes raw
+binaries + `checksums.txt`. A running instance checks GitHub Releases and offers
+an in-app **Update** pop-up (admin self-update; see the `updates` config below).
 
 ---
 
@@ -91,6 +104,11 @@ alerting:
 reports:
   enabled: false                # scheduled webhook summary (the PDF is always available on demand)
   cron: "0 8 * * 1"             # 5-field cron — default Mondays 08:00; needs alerting.webhook_url
+
+updates:
+  enabled: true                 # check GitHub Releases and allow admin in-app self-update
+  repo: "jojo024/Embrionix-Dashboard"  # GitHub owner/name to check
+  check_interval_hours: 6       # how often to poll for new releases
 
 auth:
   enabled: false                # OFF by default — no login. Set true to require authentication.

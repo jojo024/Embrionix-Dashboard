@@ -285,6 +285,31 @@ alerting webhook on the `reports.cron` schedule when `reports.enabled` is true.
 ### `GET /api/v1/export/ansible`
 Device inventory as Ansible dynamic-inventory JSON (group `emsfp`).
 
+## Updates
+
+### `GET /api/v1/version`
+Running version and cached update status. Viewer+.
+```json
+{
+  "current_version": "v0.6.0",
+  "latest_version": "v0.7.0",
+  "update_available": true,
+  "release_url": "https://github.com/.../releases/tag/v0.7.0",
+  "release_notes": "…",
+  "checked_at": "2026-06-17T08:00:00Z",
+  "enabled": true
+}
+```
+
+### `POST /api/v1/update/check`
+Forces an immediate re-check against GitHub Releases (operator+).
+
+### `POST /api/v1/update`
+Downloads the latest release binary for this platform, verifies its SHA-256
+against `checksums.txt`, swaps the running binary and **restarts the server**
+(admin only). Returns `{ "status": "updating" }`; the process relaunches and the
+UI reloads when `/health` reports the new version. Requires `updates.enabled`.
+
 ### `GET/POST /api/v1/users`, `PUT/DELETE /api/v1/users/:id` (admin)
 List / create / update (role or password) / delete users. The last remaining
 account cannot be deleted.

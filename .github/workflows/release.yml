@@ -53,27 +53,55 @@ jobs:
           npm ci
           npm run build
 
-      - name: Build backend
+      - name: Embed frontend into the binary
+        run: |
+          rm -rf internal/webui/dist
+          mkdir -p internal/webui/dist
+          cp -r web/dist/* internal/webui/dist/
+
+      - name: Build backend (self-contained binary)
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
+          mkdir -p release
           go build \
-            -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
-            -o dist/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} \
+            -ldflags="-s -w -X github.com/embrionix/dashboard/internal/version.Version=${{ github.ref_name }}" \
+            -o release/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} \
             ./cmd/server/
 
-      - name: Package
-        run: |
-          mkdir -p release
-          cp dist/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} release/
-          cp -r web/dist release/web
-          cp configs/config.yaml release/
-          tar -czf embrionix-dashboard-${{ matrix.suffix }}.tar.gz -C release .
+      - name: Checksum
+        working-directory: release
+        run: sha256sum embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }} > embrionix-dashboard-${{ matrix.suffix }}.sha256
 
-      - name: Upload release asset
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: embrionix-dashboard-${{ matrix.suffix }}.tar.gz
+          files: |
+            release/embrionix-dashboard-${{ matrix.suffix }}${{ matrix.ext }}
+            release/embrionix-dashboard-${{ matrix.suffix }}.sha256
           generate_release_notes: true
+
+  # Aggregate the per-asset checksums into a single checksums.txt that the
+  # in-app self-updater reads to verify a downloaded binary.
+  checksums:
+    name: Publish checksums.txt
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect checksums from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "*.sha256" --dir sums
+          # Each .sha256 is "<hash>  <filename>"; concatenate into checksums.txt
+          cat sums/*.sha256 > checksums.txt
+          cat checksums.txt
+
+      - name: Upload checksums.txt
+        uses: softprops/action-gh-release@v2
+        with:
+          files: checksums.txt

@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useApiStatus } from '../hooks/useApiStatus';
 import { useAuth } from '../contexts/AuthContext';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
+import { UpdateNotification } from './UpdateNotification';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -112,6 +113,7 @@ export function Layout({ children }: Props) {
       </div>
 
       <KeyboardShortcuts />
+      <UpdateNotification />
     </div>
   );
 }

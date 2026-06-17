@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/embrionix/dashboard/internal/config"
+	"github.com/embrionix/dashboard/internal/version"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,6 +47,7 @@ func HealthCheck(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "ok",
+		"version":   version.Version,
 		"uptime":    time.Since(startTime).String(),
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"go_version": runtime.Version(),
