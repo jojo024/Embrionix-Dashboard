@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed — gentler polling (5s floor + staggering)
+- **Hard 5-second floor** on the poll interval (configured values below are
+  clamped), enforced per-device across both scheduled and on-demand polls — a
+  device is never polled more than once per 5s. "Poll Now" within the window
+  returns HTTP 429.
+- **Staggered polls**: device polls are spread across (up to half) the cycle
+  instead of firing in one burst, on top of the existing concurrency cap — lower,
+  smoother load on the switch fabric and devices.
+
 ### Added — SFP TX optical power thresholds
 - A port's **TX power below −6 dBm raises a warning, below −9 dBm a critical**
   alarm (configurable: `alerting.tx_power_warn_dbm` / `tx_power_crit_dbm`, applied

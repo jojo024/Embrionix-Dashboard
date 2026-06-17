@@ -11,7 +11,8 @@ logging:
   file: "./logs/embrionix.log"
 
 polling:
-  interval_seconds: 30
+  interval_seconds: 30           # how often each device is polled (hard floor of 5s; lower is clamped).
+                                 #   Polls are staggered across the cycle to avoid bursts.
   timeout_seconds: 10
   retry_count: 2
   icmp_enabled: true             # run the independent per-path reachability probe each cycle
