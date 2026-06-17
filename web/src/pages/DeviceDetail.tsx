@@ -81,7 +81,17 @@ function OverviewTab({ device }: { device: ReturnType<typeof useDevice>['data'] 
           <MetricCard label="Core Temp" value={pd.core_temp} unit="°C" warn={pd.core_temp > 70} icon={Thermometer} />
           <MetricCard label="Fan Speed" value={pd.fan_speed} unit="RPM" icon={Wind} />
           <MetricCard label="Core Voltage" value={pd.core_voltage ? pd.core_voltage / 1000 : null} unit="V" icon={Cpu} />
-          <MetricCard label="Uptime" value={null} unit="" icon={Clock} />
+          {pd.uptime && (
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-500">Uptime</span>
+                <Clock className="w-4 h-4 text-slate-600" />
+              </div>
+              <p className="text-lg font-bold text-slate-100 break-words">
+                {pd.uptime.split(',')[0]}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
