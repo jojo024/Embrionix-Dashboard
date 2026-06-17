@@ -87,6 +87,7 @@ export interface NetworkInterface {
 }
 
 export interface LLDPNeighbor {
+  interface: number;   // local physical interface (matches the SFP port number)
   chassis_id: string;
   port_id: string;
   ttl: string;
@@ -146,7 +147,8 @@ export interface DevicePollingData {
   interfaces?: NetworkInterface[];
 
   // /lldp
-  lldp?: LLDPNeighbor;
+  lldp?: LLDPNeighbor;                 // primary neighbour (first)
+  lldp_neighbors?: LLDPNeighbor[];     // all neighbours, one per local interface
 
   // /telemetry/devices
   media_devices?: MediaDeviceTelemetry[];

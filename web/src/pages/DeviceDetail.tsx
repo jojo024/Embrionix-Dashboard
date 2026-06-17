@@ -217,16 +217,27 @@ function InterfacesTab({ device }: { device: ReturnType<typeof useDevice>['data'
       {/* LLDP neighbour + ethernet counters */}
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="card p-4">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">LLDP Neighbour</h3>
-          {pd.lldp?.chassis_id ? (
-            <>
-              <InfoRow label="Chassis ID" value={pd.lldp.chassis_id} mono />
-              <InfoRow label="Remote Port" value={pd.lldp.port_id} mono />
-              <InfoRow label="TTL" value={pd.lldp.ttl ? `${pd.lldp.ttl}s` : undefined} />
-            </>
-          ) : (
-            <p className="text-xs text-slate-500">No LLDP neighbour discovered.</p>
-          )}
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">LLDP Neighbours</h3>
+          {(() => {
+            const neighbors = pd.lldp_neighbors ?? (pd.lldp ? [pd.lldp] : [])
+            if (neighbors.length === 0) {
+              return <p className="text-xs text-slate-500">No LLDP neighbour discovered.</p>
+            }
+            return (
+              <div className="space-y-3">
+                {neighbors.map((n, i) => (
+                  <div key={i} className="pb-2 border-b border-surface-800 last:border-0 last:pb-0">
+                    <div className="text-xs text-slate-400 mb-1">
+                      {n.interface ? `Local port ${n.interface}` : 'Neighbour'}
+                    </div>
+                    <InfoRow label="Chassis ID" value={n.chassis_id} mono />
+                    <InfoRow label="Remote Port" value={n.port_id} mono />
+                    <InfoRow label="TTL" value={n.ttl ? `${n.ttl}s` : undefined} />
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
         <div className="card p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Control-Plane Ethernet</h3>
