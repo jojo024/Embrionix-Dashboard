@@ -172,32 +172,31 @@ export function DeviceCard({ device }: Props) {
           )}
         </div>
 
-        {/* SFP light levels — ports 3 & 5 only, with LLDP info */}
+        {/* SFP light levels — ports 3 & 5 only, with per-port LLDP neighbour */}
         {pd?.ports && (
           (() => {
             const relevantPorts = pd.ports.filter(p => p.port === 3 || p.port === 5)
+            const neighbors = pd.lldp_neighbors ?? (pd.lldp ? [pd.lldp] : [])
+            const neighborFor = (port: number) => neighbors.find(n => n.interface === port)
             return relevantPorts.length > 0 ? (
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {relevantPorts.map((p) => (
+              <div className="grid grid-cols-2 gap-1.5">
+                {relevantPorts.map((p) => {
+                  const n = neighborFor(p.port)
+                  return (
                     <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
                       <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
                       <div className="space-y-0.5 text-xs font-mono">
                         <div className="text-blue-400">TX {powerTodBm(p.tx_power)}</div>
                         <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
+                        {n && (
+                          <div className="text-slate-400 truncate" title={`LLDP neighbour ${n.chassis_id} port ${n.port_id}`}>
+                            ↳ {n.port_id || n.chassis_id}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-                {pd.lldp && (
-                  <div className="bg-surface-800/60 rounded-md px-2 py-1 text-xs">
-                    <div className="text-slate-500 mb-0.5">Neighbor</div>
-                    <div className="text-slate-300 font-mono text-xs space-y-0.5">
-                      <div className="truncate">{pd.lldp.chassis_id}</div>
-                      <div className="text-slate-400">port: {pd.lldp.port_id}</div>
-                    </div>
-                  </div>
-                )}
+                  )
+                })}
               </div>
             ) : null
           })()
