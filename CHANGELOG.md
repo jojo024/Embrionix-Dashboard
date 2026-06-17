@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — deployment readiness
+- **[DEPLOYMENT.md](DEPLOYMENT.md)**: production guide — install, configure, run as a
+  service (systemd / Windows NSSM), backups, security, updates & rollback,
+  troubleshooting.
+- Service artifacts: `deploy/embrionix-dashboard.service` (systemd) and
+  `deploy/install-windows-service.ps1` (NSSM).
+- **`updates.restart_mode`** (`self` | `exit`): under a service manager, set
+  `exit` so a self-update exits cleanly and the supervisor restarts the new
+  binary (instead of the app relaunching itself and contending for the port).
+
 ### Added — in-app updates & self-contained binary
 - **Single self-contained binary**: the React frontend is now embedded into the
   Go binary (`go:embed`) and served by it (with SPA fallback). The server is one
