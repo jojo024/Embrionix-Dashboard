@@ -95,11 +95,20 @@ func main() {
 		cfgPath = os.Args[1]
 	}
 
+	// Ensure working directories exist (out-of-box ready).
+	for _, dir := range []string{"data", "logs"} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create directory %s: %v\n", dir, err)
+			os.Exit(1)
+		}
+	}
+
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Fprintf(os.Stderr, "config loaded from %s\n", cfgPath)
 
 	if err := logger.Init(cfg.Logging.Level, cfg.Logging.File); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
