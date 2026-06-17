@@ -20,6 +20,7 @@ internal/webui/dist/*
 # ── Runtime data ──────────────────────────────────────────────────────────────
 /data/
 /logs/
+/documentations/
 *.db
 *.db-shm
 *.db-wal
