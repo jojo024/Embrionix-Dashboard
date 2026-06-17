@@ -628,6 +628,11 @@ func buildAlarms(data *models.DevicePollingData) {
 		data.Alarms = append(data.Alarms, "Video bandwidth usage: "+v)
 	}
 	for _, pd := range data.PortDetails {
+		// A populated SFP port (DDM present = module installed) with no link is a
+		// lost connection — flagged here and escalated to critical in deriveStatus.
+		if pd.DDM != nil && strings.EqualFold(pd.Link, "down") {
+			data.Alarms = append(data.Alarms, fmt.Sprintf("Port %s: link down", pd.PortID))
+		}
 		if pd.DDM == nil {
 			continue
 		}

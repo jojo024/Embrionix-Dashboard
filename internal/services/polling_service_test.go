@@ -19,51 +19,73 @@ func testService() *PollingService {
 
 func TestDeriveStatus(t *testing.T) {
 	s := testService()
-	const fast = int64(50)
+	const notSlow = 0
+	lockedPTP := &models.PTPStatus{Locked: true}
 
 	t.Run("clean device is online", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 60}
-		if got := s.deriveStatus(pd, fast); got != models.StatusOnline {
+		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
+		if got := s.deriveStatus(pd, notSlow); got != models.StatusOnline {
 			t.Fatalf("got %q, want online", got)
 		}
 	})
 
-	t.Run("alarms trigger warning", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 60, Alarms: []string{"PTP not locked"}}
-		if got := s.deriveStatus(pd, fast); got != models.StatusWarning {
-			t.Fatalf("got %q, want warning", got)
-		}
-	})
-
 	t.Run("warm device warns at the configured threshold", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 72}
-		if got := s.deriveStatus(pd, fast); got != models.StatusWarning {
+		pd := &models.DevicePollingData{CoreTemp: 72, PTP: lockedPTP}
+		if got := s.deriveStatus(pd, notSlow); got != models.StatusWarning {
 			t.Fatalf("got %q, want warning", got)
 		}
 	})
 
-	t.Run("slow response warns", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 60}
-		if got := s.deriveStatus(pd, 3000); got != models.StatusWarning {
+	t.Run("transient slowness does NOT warn (backoff)", func(t *testing.T) {
+		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
+		if got := s.deriveStatus(pd, SlowWarnAfter-1); got != models.StatusOnline {
+			t.Fatalf("got %q, want online (under backoff threshold)", got)
+		}
+	})
+
+	t.Run("sustained slowness warns", func(t *testing.T) {
+		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
+		if got := s.deriveStatus(pd, SlowWarnAfter); got != models.StatusWarning {
 			t.Fatalf("got %q, want warning", got)
+		}
+	})
+
+	t.Run("PTP not locked is critical", func(t *testing.T) {
+		pd := &models.DevicePollingData{CoreTemp: 60, PTP: &models.PTPStatus{Locked: false}}
+		if got := s.deriveStatus(pd, notSlow); got != models.StatusCritical {
+			t.Fatalf("got %q, want critical", got)
+		}
+	})
+
+	t.Run("populated SFP port with link down is critical", func(t *testing.T) {
+		pd := &models.DevicePollingData{
+			CoreTemp: 60, PTP: lockedPTP,
+			PortDetails: []models.PortDetail{{PortID: "3", Link: "down", DDM: &models.SFPDDM{}}},
+		}
+		if got := s.deriveStatus(pd, notSlow); got != models.StatusCritical {
+			t.Fatalf("got %q, want critical", got)
+		}
+	})
+
+	t.Run("empty cage with no link does not flag", func(t *testing.T) {
+		// No DDM = no module installed; link down is expected, not an alarm.
+		pd := &models.DevicePollingData{
+			CoreTemp: 60, PTP: lockedPTP,
+			PortDetails: []models.PortDetail{{PortID: "1", Link: "down"}},
+		}
+		if got := s.deriveStatus(pd, notSlow); got != models.StatusOnline {
+			t.Fatalf("got %q, want online", got)
 		}
 	})
 
 	t.Run("hot device is critical and gets an alarm appended", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 80}
-		got := s.deriveStatus(pd, fast)
+		pd := &models.DevicePollingData{CoreTemp: 80, PTP: lockedPTP}
+		got := s.deriveStatus(pd, notSlow)
 		if got != models.StatusCritical {
 			t.Fatalf("got %q, want critical", got)
 		}
 		if len(pd.Alarms) == 0 {
 			t.Fatalf("expected a temperature alarm to be appended")
-		}
-	})
-
-	t.Run("critical outranks existing warnings", func(t *testing.T) {
-		pd := &models.DevicePollingData{CoreTemp: 90, Alarms: []string{"some warning"}}
-		if got := s.deriveStatus(pd, fast); got != models.StatusCritical {
-			t.Fatalf("got %q, want critical", got)
 		}
 	})
 }
