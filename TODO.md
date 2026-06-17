@@ -1,6 +1,6 @@
 # TODO
 
-Active work items. See [ROADMAP.md](ROADMAP.md) for the full phased plan.
+Active work items (features and bug fixes).
 
 ---
 

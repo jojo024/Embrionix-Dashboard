@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed — phased roadmap
+- Retired the big-picture phased roadmap now that the platform is feature-complete;
+  work continues as features and bug fixes. Removed `ROADMAP.md`, the dashboard
+  About-page roadmap, the sidebar phase indicator (now shows the version), the
+  README phase badge, and stale phase labels in docs/code comments.
+
 ### Changed — gentler polling (5s floor + staggering)
 - **Hard 5-second floor** on the poll interval (configured values below are
   clamped), enforced per-device across both scheduled and on-demand polls — a

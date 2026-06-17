@@ -46,7 +46,7 @@ type AppSetting struct {
 }
 
 // AuditEvent records a configuration write or device action performed through
-// the dashboard (Phase 4b), for traceability on shared/live systems.
+// the dashboard, for traceability on shared/live systems.
 type AuditEvent struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	DeviceID   string    `gorm:"index;not null" json:"device_id"`

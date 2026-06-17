@@ -67,7 +67,7 @@ export function useAuditLog(deviceId?: string, limit = 100) {
   });
 }
 
-// --- Phase 4b config-write mutations. All invalidate the device-config and
+// --- Config-write mutations. All invalidate the device-config and
 // audit-log queries so the UI reflects the new state after a write. ---
 function useConfigMutation<T>(id: string, fn: (vars: T) => Promise<unknown>) {
   const qc = useQueryClient();

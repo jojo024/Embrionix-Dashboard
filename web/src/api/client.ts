@@ -104,7 +104,7 @@ export const api = {
   getDeviceConfig: (id: string): Promise<DeviceConfig> =>
     request(`/api/v1/devices/${id}/config`),
 
-  // ---- Configuration writes + device actions (Phase 4b) ----
+  // ---- Configuration writes + device actions ----
   updateNetwork: (id: string, body: NetworkUpdate): Promise<{ ok: boolean; audit: AuditEvent }> =>
     request(`/api/v1/devices/${id}/config/network`, { method: 'PUT', body: JSON.stringify(body) }),
 
@@ -126,7 +126,7 @@ export const api = {
   getAuditLog: (deviceId?: string, limit = 100): Promise<AuditLogResponse> =>
     request(`/api/v1/audit?limit=${limit}${deviceId ? `&device=${deviceId}` : ''}`),
 
-  // ---- Backup / restore / bulk (Phase 4c) ----
+  // ---- Backup / restore / bulk ----
   configExportUrl: (id: string): string => `${BASE}/api/v1/devices/${id}/config/export`,
 
   importDeviceConfig: (id: string, config: DeviceConfig, includeNetwork: boolean): Promise<{ applied: string[]; failed: string[] }> =>
@@ -150,7 +150,7 @@ export const api = {
   setSetting: (key: string, value: string): Promise<{ key: string; value: string }> =>
     request(`/api/v1/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
 
-  // ---- Auth & users (Phase 5) ----
+  // ---- Auth & users ----
   login: (username: string, password: string): Promise<LoginResponse> =>
     request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
 
