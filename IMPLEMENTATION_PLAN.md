@@ -113,26 +113,28 @@ Device management features that require schema/API changes.
 
 ## Implementation Sequence (Recommended)
 
+### ✅ COMPLETED
+- [x] #28 - Fix remote access time display (UTC timestamps)
+- [x] #31 - Display uptime in device overview metrics
+- [x] #33 - Firmware hex translation (0x5fce17b0 → 0x5fce17b0 (2020-12-07))
+- [x] #32 - Sticky header on device detail page
+- [x] #34 - Flag zero power on active SFP ports (warning indicator)
+
+### 🚧 IN PROGRESS / REMAINING
+
 ```
-Week 1:
-  [Mon]  Fix #28 (remote access bug)
-  [Tue]  Implement #31 (uptime display)
-  [Wed]  Implement #33 (firmware translation)
-  [Thu]  Implement #32 (fixed header)
-  [Fri]  Test & merge #31, #33, #32
+High Priority (UX/Quality):
+  [ ] #21 - Flag mismatched ipconfig (device config vs. actual)
+  [ ] #30 - Reorder device cards (drag-drop + persistence)
+  [ ] #29 - Display LLDP info on device cards
 
-Week 2:
-  [Mon]  Implement #34 (flag rx_power 0)
-  [Tue]  Implement #21 (flag ipconfig mismatch)
-  [Wed]  Implement #30 (reorder cards)
-  [Thu]  Implement #29 (LLDP display)
-  [Fri]  Test & merge
+Medium Priority (Polish):
+  [ ] #27 - Sliding/collapsible sidebar
+  [ ] #2  - Device add with auto-probe (fetch SN/firmware)
 
-Week 3:
-  [Mon-Wed] Implement #27 (sliding sidebar)
-  [Thu-Fri] Implement #2 (device add with auto-probe)
-  
-Final: Code review, integration test, release
+Total Issues: 10
+Completed: 5 (50%)
+Remaining: 5 (50%)
 ```
 
 ---
