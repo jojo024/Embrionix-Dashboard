@@ -31,9 +31,13 @@ type ReportsConfig struct {
 // GitHub Releases of Repo for a newer tag; an admin can then trigger a self-update
 // that downloads the matching binary, swaps it in place, and restarts.
 type UpdatesConfig struct {
-	Enabled           bool   `mapstructure:"enabled"`
-	Repo              string `mapstructure:"repo"`                // "owner/name" on GitHub
-	CheckIntervalHours int   `mapstructure:"check_interval_hours"` // how often to poll GitHub Releases
+	Enabled            bool   `mapstructure:"enabled"`
+	Repo               string `mapstructure:"repo"`                 // "owner/name" on GitHub
+	CheckIntervalHours int    `mapstructure:"check_interval_hours"` // how often to poll GitHub Releases
+	// RestartMode controls how the process restarts after a self-update:
+	//   "self" — spawn a fresh instance, then exit (for unsupervised runs).
+	//   "exit" — just exit and let a service manager (systemd/NSSM) restart it.
+	RestartMode string `mapstructure:"restart_mode"`
 }
 
 // AuthConfig controls authentication and RBAC. Disabled by default so an
@@ -113,6 +117,7 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("updates.enabled", true)
 	v.SetDefault("updates.repo", "jojo024/Embrionix-Dashboard")
 	v.SetDefault("updates.check_interval_hours", 6)
+	v.SetDefault("updates.restart_mode", "self")
 	v.SetDefault("auth.enabled", false)
 	v.SetDefault("auth.token_ttl_hours", 12)
 	v.SetDefault("auth.admin_username", "admin")

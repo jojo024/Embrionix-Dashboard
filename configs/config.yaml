@@ -38,6 +38,10 @@ updates:
   enabled: true                  # check GitHub Releases for a newer version and allow admin self-update
   repo: "jojo024/Embrionix-Dashboard"   # GitHub "owner/name" to check for releases
   check_interval_hours: 6        # how often to poll for new releases (min 1h)
+  restart_mode: "self"           # how to restart after a self-update:
+                                 #   "self" — relaunch itself (use when running the binary directly)
+                                 #   "exit" — just exit and let the service manager restart it
+                                 #            (REQUIRED when running under systemd / NSSM / a Windows service)
 
 auth:
   enabled: false                 # OFF by default — the dashboard runs with no login.
