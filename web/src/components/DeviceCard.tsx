@@ -221,6 +221,18 @@ export function DeviceCard({ device }: Props) {
             {(pd?.alarms?.length ?? 0)} alarm{(pd?.alarms?.length ?? 0) !== 1 ? 's' : ''} dismissed
           </div>
         )}
+
+        {/* Power warnings — zero power on active ports */}
+        {(pd?.power_warnings && pd.power_warnings.length > 0) && (
+          <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-md px-2 py-1">
+            <Zap className="w-3 h-3 text-orange-400 mt-0.5 shrink-0" />
+            <div className="flex-1 text-xs text-orange-300">
+              {pd.power_warnings.map((w, i) => (
+                <div key={i}>{w}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

@@ -113,6 +113,9 @@ type DevicePollingData struct {
 
 	// Errors/alarms
 	Alarms []string `json:"alarms"`
+
+	// Power warnings (e.g., port up but power is 0)
+	PowerWarnings []string `json:"power_warnings"`
 }
 
 // PTPStatus holds decoded PTP/refclk diagnostics from /self/diag/refclk.

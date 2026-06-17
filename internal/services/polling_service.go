@@ -324,6 +324,9 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 		state.Reachable = true
 		state.Data = pollingData
 
+		// Check for power warnings (zero power on active ports)
+		checkPowerWarnings(pollingData)
+
 		state.Status = s.deriveStatus(pollingData, device.SlowResponseCount)
 
 		pollResult.Reachable = true
@@ -521,6 +524,31 @@ func txPortMonitored(ports []int, port int) bool {
 		}
 	}
 	return false
+}
+
+// checkPowerWarnings detects SFP ports with zero power while link is active.
+// This usually indicates a configuration or hardware issue.
+func checkPowerWarnings(pd *models.DevicePollingData) {
+	for _, p := range pd.PortDetails {
+		// Skip if no DDM data or link is not up
+		if p.DDM == nil || !strings.EqualFold(p.Link, "up") {
+			continue
+		}
+
+		warnings := []string{}
+		if p.DDM.TxPower.Current == 0 {
+			warnings = append(warnings, fmt.Sprintf("TX power is 0"))
+		}
+		if p.DDM.RxPower.Current == 0 {
+			warnings = append(warnings, fmt.Sprintf("RX power is 0"))
+		}
+
+		if len(warnings) > 0 {
+			portNum := p.PortID
+			pd.PowerWarnings = append(pd.PowerWarnings,
+				fmt.Sprintf("Port %s (link up): %s", portNum, strings.Join(warnings, ", ")))
+		}
+	}
 }
 
 // deriveStatus maps live polling data to a device status using all health
