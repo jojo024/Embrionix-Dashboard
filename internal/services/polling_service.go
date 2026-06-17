@@ -216,12 +216,15 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 	state.ResponseMs = responseMs
 	pollResult.ResponseMs = responseMs
 
-	// Track consecutive slow responses. These devices typically respond in 2-3 seconds,
-	// so threshold is 6 seconds or 75% of timeout, whichever is lower.
-	// Mark as slow after 3 consecutive slow responses.
-	const SlowThresholdMs = 6000 // 6 seconds
-	slowThreshold := int64(SlowThresholdMs)
-	if timeoutMs := int64(s.pollCfg.TimeoutSeconds) * 1000 * 3 / 4; timeoutMs < slowThreshold {
+	// Track consecutive slow responses against the configured response-warning
+	// threshold (capped at 75% of the poll timeout). A warning is only raised
+	// after several consecutive slow polls (see deriveStatus / SlowWarnAfter), so
+	// the routine 2-3s latency of these devices never flaps the status.
+	slowThreshold := s.alertCfg.ResponseWarnMs
+	if slowThreshold <= 0 {
+		slowThreshold = 6000
+	}
+	if timeoutMs := int64(s.pollCfg.TimeoutSeconds) * 1000 * 3 / 4; timeoutMs > 0 && timeoutMs < slowThreshold {
 		slowThreshold = timeoutMs
 	}
 
@@ -252,7 +255,7 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 		state.Reachable = true
 		state.Data = pollingData
 
-		state.Status = s.deriveStatus(pollingData, responseMs)
+		state.Status = s.deriveStatus(pollingData, device.SlowResponseCount)
 
 		pollResult.Reachable = true
 		temp := pollingData.CoreTemp
@@ -423,34 +426,50 @@ func (s *PollingService) probeDualPath(
 	wg.Wait()
 }
 
+// SlowWarnAfter is how many consecutive slow polls must occur before a "slow
+// API" warning is raised (backoff — these devices are routinely a little slow).
+const SlowWarnAfter = 3
+
 // deriveStatus maps live polling data to a device status using all health
-// signals collected from the EM6 (alarms, temperature, PTP lock, bandwidth)
-// against the configured alert thresholds.
-func (s *PollingService) deriveStatus(pd *models.DevicePollingData, responseMs int64) models.DeviceStatus {
+// signals collected from the EM6 (alarms, temperature, PTP lock, link state)
+// against the configured alert thresholds. slowCount is the device's current
+// run of consecutive slow polls.
+func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount int) models.DeviceStatus {
 	a := s.alertCfg
 	status := models.StatusOnline
 	if len(pd.Alarms) > 0 {
 		status = models.StatusWarning
 	}
 
-	// Warning-level threshold checks.
+	// --- Warning-level checks ---
 	if a.TempWarningC > 0 && pd.CoreTemp >= a.TempWarningC && pd.CoreTemp < a.TempCriticalC {
 		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature high (≥%.0f°C)", a.TempWarningC))
 		if status == models.StatusOnline {
 			status = models.StatusWarning
 		}
 	}
-	if a.ResponseWarnMs > 0 && responseMs >= a.ResponseWarnMs {
-		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Slow API response (%dms)", responseMs))
+	// Slow API: only after a sustained run of slow polls (backoff).
+	if slowCount >= SlowWarnAfter {
+		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Persistently slow API responses (%d consecutive)", slowCount))
 		if status == models.StatusOnline {
 			status = models.StatusWarning
 		}
 	}
 
-	// Critical conditions escalate above warning.
+	// --- Critical conditions escalate above warning ---
 	if a.TempCriticalC > 0 && pd.CoreTemp >= a.TempCriticalC {
 		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature critical (≥%.0f°C)", a.TempCriticalC))
 		status = models.StatusCritical
+	}
+	// PTP not locked = timing loss; critical on a broadcast device.
+	if pd.PTP != nil && !pd.PTP.Locked {
+		status = models.StatusCritical
+	}
+	// A populated SFP port that has lost its link is critical.
+	for _, p := range pd.PortDetails {
+		if p.DDM != nil && strings.EqualFold(p.Link, "down") {
+			status = models.StatusCritical
+		}
 	}
 	return status
 }
