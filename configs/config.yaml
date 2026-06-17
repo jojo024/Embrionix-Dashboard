@@ -26,7 +26,9 @@ polling:
 alerting:
   temp_warning_c: 70             # core temp (°C) that raises a warning
   temp_critical_c: 75            # core temp (°C) that raises a critical alarm
-  response_warning_ms: 2000      # API response time (ms) that raises a warning
+  response_warning_ms: 6000      # API response time (ms) counted as "slow"; a warning is only raised after
+                                 #   several consecutive slow polls (these devices are routinely 2-3s, so a
+                                 #   single slow poll never warns)
   webhook_url: ""                # generic/Slack-compatible incoming webhook; empty disables notifications
   webhook_on:                    # fire a webhook when a device transitions INTO one of these states
     - critical

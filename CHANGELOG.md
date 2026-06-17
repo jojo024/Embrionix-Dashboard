@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed — alarm severity & slow-response backoff
+- **Slow-API warning backoff**: a slow-response warning is now raised only after
+  **several consecutive slow polls** (`SlowWarnAfter`, default 3), not on a single
+  slow poll, and the "slow" threshold default rose to **6000 ms** — these devices
+  are routinely 2-3 s, so transient latency no longer flaps the status.
+- **PTP not locked → critical** (was warning): timing loss is critical on a
+  broadcast device.
+- **Lost link on a populated SFP port → critical**: a port with an installed
+  module (DDM present) reporting `link: down` now raises a "Port X: link down"
+  alarm and marks the device critical. Empty cages are ignored.
+
 ### Added — collapsible Active Alarms panel
 - The dashboard's **Active Alarms** panel can now be collapsed/expanded by clicking
   its header (the alarm count stays visible). State is remembered across reloads

@@ -115,7 +115,7 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("polling.blue_probe", "icmp")
 	v.SetDefault("alerting.temp_warning_c", 70)
 	v.SetDefault("alerting.temp_critical_c", 75)
-	v.SetDefault("alerting.response_warning_ms", 2000)
+	v.SetDefault("alerting.response_warning_ms", 6000)
 	v.SetDefault("alerting.webhook_url", "")
 	v.SetDefault("alerting.webhook_on", []string{"critical", "offline"})
 	v.SetDefault("reports.enabled", false)
