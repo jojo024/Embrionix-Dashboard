@@ -392,15 +392,21 @@ Set an application setting.
 ## Dual-path reachability
 
 When `polling.icmp_enabled` is `true`, every poll cycle runs an independent
-L4 (TCP-connect) probe against **both** the Red and Blue management IPs, in
-addition to the full REST poll. The results populate `reachable_red` and
-`reachable_blue` on the device and each `PollResult`.
+reachability probe against **both** the Red and Blue management IPs, in addition
+to the full REST poll. The results populate `reachable_red` and `reachable_blue`
+on the device and each `PollResult`.
 
-> **Why TCP, not ICMP?** Raw ICMP echo sockets require elevated privileges on
-> Windows (and `CAP_NET_RAW` on Linux). To keep the dashboard runnable as an
-> unprivileged process, reachability uses a TCP connect to the management port,
-> which exercises the same L3 path without raw sockets. This trade-off is
-> recorded in [ISSUES.md](ISSUES.md).
+- **Red** is always probed with a **TCP connect** to port 80 — it runs the HTTP
+  management API, so a successful connect proves the device is actually serving.
+- **Blue** is probed per `polling.blue_probe`: **`icmp`** (default) or **`tcp`**.
+  EM6 second/Blue interfaces typically answer ICMP but **do not** run the HTTP
+  management server, so a TCP probe there would falsely read offline. ICMP uses
+  the operating system's `ping` command (no raw sockets, no elevated privileges).
+
+> **Why the OS `ping` and not a raw socket?** Raw ICMP echo sockets require
+> elevated privileges on Windows (and `CAP_NET_RAW` on Linux). Shelling out to the
+> system `ping` exercises the same L3 path while keeping the dashboard an
+> unprivileged process. See [ISSUES.md](ISSUES.md).
 
 ---
 
