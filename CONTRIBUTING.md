@@ -55,7 +55,6 @@ Branch naming: `feature/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`.
 
 - Update `API.md` for any new endpoint.
 - Update `CHANGELOG.md` for any user-visible change.
-- Update `ROADMAP.md` when a phase item is completed.
 - If a feature is deferred or blocked, record it in `ISSUES.md`.
 
 ## Commit Messages
@@ -65,7 +64,7 @@ Use imperative mood, present tense:
 ```
 Add SFP DDM temperature chart to device detail
 Fix polling panic when device has no management IP
-Update ROADMAP to mark Phase 1 complete
+Stagger device polls to reduce burst load
 ```
 
 ## Code Review Checklist

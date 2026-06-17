@@ -304,7 +304,7 @@ export interface DeviceConfig {
   dns?: DNSConfig;
 }
 
-// --- Phase 4b write payloads ---
+// --- Write payloads ---
 
 export interface NetworkUpdate {
   ip_addr: string;

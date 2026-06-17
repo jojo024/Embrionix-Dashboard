@@ -6,6 +6,7 @@ import { useApiStatus } from '../hooks/useApiStatus';
 import { useAuth } from '../contexts/AuthContext';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
 import { UpdateNotification } from './UpdateNotification';
+import { useVersion } from '../hooks/useUpdate';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,6 +22,7 @@ export function Layout({ children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const apiConnected = useApiStatus();
   const { authEnabled, username, role, logout } = useAuth();
+  const { data: version } = useVersion();
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
@@ -68,7 +70,7 @@ export function Layout({ children }: Props) {
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-surface-700">
-          <p className="text-xs text-slate-600">Phase 1 · v0.1.0</p>
+          <p className="text-xs text-slate-600">Embrionix Dashboard{version?.current_version ? ` · ${version.current_version}` : ''}</p>
         </div>
       </aside>
 
