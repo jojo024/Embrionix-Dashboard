@@ -87,6 +87,14 @@ func (h *MonitoringHandler) PollDeviceNow(c *gin.Context) {
 		return
 	}
 
+	// Enforce the per-device minimum poll interval (shared with the scheduler).
+	if ok, wait := h.pollingSvc.AllowManualPoll(device.ID); !ok {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error": fmt.Sprintf("polled too recently; retry in %ds", int(wait.Seconds())+1),
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(h.pollCfg.TimeoutSeconds)*time.Second)
 	defer cancel()
 

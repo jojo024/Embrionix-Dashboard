@@ -2,6 +2,7 @@ package services
 
 import (
 	"testing"
+	"time"
 
 	"github.com/embrionix/dashboard/internal/config"
 	"github.com/embrionix/dashboard/internal/models"
@@ -125,6 +126,33 @@ func TestDeriveStatusTxPower(t *testing.T) {
 				t.Fatalf("got %q, want %q", got, c.expect)
 			}
 		})
+	}
+}
+
+func TestReservePoll(t *testing.T) {
+	s := &PollingService{lastPoll: make(map[string]time.Time)}
+	if ok, _ := s.reservePoll("d1"); !ok {
+		t.Fatal("first poll should be allowed")
+	}
+	if ok, wait := s.reservePoll("d1"); ok || wait <= 0 {
+		t.Fatalf("second immediate poll should be blocked with a positive wait, got ok=%v wait=%v", ok, wait)
+	}
+	if ok, _ := s.reservePoll("d2"); !ok {
+		t.Fatal("a different device should be allowed independently")
+	}
+}
+
+func TestStaggerStep(t *testing.T) {
+	if staggerStep(1, 30) != 0 || staggerStep(0, 30) != 0 {
+		t.Error("0 or 1 device should have no stagger")
+	}
+	// 1000 devices over 15s would be 15ms each — under the 250ms cap.
+	if got := staggerStep(1000, 30); got <= 0 || got > 250*time.Millisecond {
+		t.Errorf("got %v, want a small positive step ≤ 250ms", got)
+	}
+	// Few devices: 4 over 15s = ~3.75s each, capped at 250ms.
+	if got := staggerStep(4, 30); got != 250*time.Millisecond {
+		t.Errorf("got %v, want 250ms (capped)", got)
 	}
 }
 
