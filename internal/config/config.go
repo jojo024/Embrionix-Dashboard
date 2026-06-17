@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -142,11 +143,15 @@ func Load(path string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+	// Attempt to load config file if it exists; ignore all file-not-found errors
+	// and use defaults. This allows the app to work out-of-the-box without any config file.
+	if _, err := os.Stat(path); err == nil {
+		if err := v.ReadInConfig(); err != nil {
+			// File exists but couldn't be read — that's a real error
 			return nil, fmt.Errorf("reading config: %w", err)
 		}
 	}
+	// File doesn't exist — use defaults (from SetDefault calls above)
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
