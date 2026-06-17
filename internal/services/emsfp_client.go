@@ -8,7 +8,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os/exec"
+	"regexp"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -837,4 +841,66 @@ func ProbeTCP(ctx context.Context, ip, port string, timeout time.Duration) (reac
 	}
 	_ = conn.Close()
 	return true, responseMs
+}
+
+// ProbeICMP performs an ICMP echo (ping) reachability check by invoking the
+// operating system's `ping` command — privilege-free, unlike a raw ICMP socket.
+// This is used for management paths that answer ICMP but not TCP (e.g. an EM6's
+// second/Blue interface, which does not run the HTTP management server).
+func ProbeICMP(ctx context.Context, ip string, timeout time.Duration) (reachable bool, responseMs int64) {
+	cmd := pingCommand(ctx, ip, timeout)
+	start := time.Now()
+	out, err := cmd.CombinedOutput()
+	elapsed := time.Since(start).Milliseconds()
+
+	if !pingSucceeded(string(out), err == nil) {
+		return false, elapsed
+	}
+	if rtt := parsePingMs(string(out)); rtt > 0 {
+		return true, rtt
+	}
+	return true, elapsed
+}
+
+// pingCommand builds the platform-appropriate single-echo ping with a timeout.
+func pingCommand(ctx context.Context, ip string, timeout time.Duration) *exec.Cmd {
+	ms := int(timeout / time.Millisecond)
+	if ms < 1 {
+		ms = 1000
+	}
+	if runtime.GOOS == "windows" {
+		return exec.CommandContext(ctx, "ping", "-n", "1", "-w", strconv.Itoa(ms), ip)
+	}
+	// Linux/macOS: -c 1 one echo, -W timeout in (whole) seconds.
+	secs := (ms + 999) / 1000
+	if secs < 1 {
+		secs = 1
+	}
+	return exec.CommandContext(ctx, "ping", "-c", "1", "-W", strconv.Itoa(secs), ip)
+}
+
+// pingSucceeded reports a real echo reply. It requires both a zero exit code and
+// a "ttl=" marker so that Windows' "Destination host unreachable" replies (which
+// can exit 0 yet carry no TTL) are correctly treated as unreachable.
+func pingSucceeded(out string, exitOK bool) bool {
+	return exitOK && strings.Contains(strings.ToLower(out), "ttl=")
+}
+
+var pingTimeRe = regexp.MustCompile(`(?i)time[=<]\s*([0-9.]+)`)
+
+// parsePingMs extracts the round-trip time (ms) from ping output, rounded to the
+// nearest millisecond. Returns 0 when no time field is present.
+func parsePingMs(out string) int64 {
+	m := pingTimeRe.FindStringSubmatch(out)
+	if len(m) < 2 {
+		return 0
+	}
+	f, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		return 0
+	}
+	if f < 1 {
+		return 1
+	}
+	return int64(f + 0.5)
 }

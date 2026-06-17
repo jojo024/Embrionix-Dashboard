@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed — Blue-path reachability for EM6 hardware
+- The Blue management interface on an EM6 answers **ICMP but not TCP** (it doesn't
+  run the HTTP server), so the previous TCP-on-both-paths probe always read Blue
+  as offline. Blue is now probed with **ICMP (OS `ping`, privilege-free)** by
+  default; Red stays on TCP (the management API). Configurable via
+  `polling.blue_probe` (`icmp` | `tcp`).
+
 ### Added — deployment readiness
 - **[DEPLOYMENT.md](DEPLOYMENT.md)**: production guide — install, configure, run as a
   service (systemd / Windows NSSM), backups, security, updates & rollback,

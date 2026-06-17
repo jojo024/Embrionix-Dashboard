@@ -49,6 +49,41 @@ func TestCarrySlowDataAndRebuildAlarms(t *testing.T) {
 	}
 }
 
+func TestPingSucceeded(t *testing.T) {
+	winReply := "Reply from 192.168.1.50: bytes=32 time=1ms TTL=64"
+	winUnreachable := "Reply from 192.168.1.1: Destination host unreachable."
+	winTimeout := "Request timed out."
+	linuxReply := "64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.045 ms"
+
+	if !pingSucceeded(winReply, true) {
+		t.Error("windows echo reply should succeed")
+	}
+	if pingSucceeded(winUnreachable, true) {
+		t.Error("'destination host unreachable' (no TTL) must not count as reachable")
+	}
+	if pingSucceeded(winTimeout, false) {
+		t.Error("timeout (non-zero exit) must not count as reachable")
+	}
+	if !pingSucceeded(linuxReply, true) {
+		t.Error("linux echo reply should succeed")
+	}
+}
+
+func TestParsePingMs(t *testing.T) {
+	cases := map[string]int64{
+		"bytes=32 time=1ms TTL=64":        1,
+		"bytes=32 time<1ms TTL=64":        1, // sub-ms clamps to 1
+		"icmp_seq=1 ttl=64 time=0.045 ms": 1,
+		"icmp_seq=1 ttl=64 time=12.6 ms":  13,
+		"no timing here":                  0,
+	}
+	for out, want := range cases {
+		if got := parsePingMs(out); got != want {
+			t.Errorf("parsePingMs(%q) = %d, want %d", out, got, want)
+		}
+	}
+}
+
 func TestAsString(t *testing.T) {
 	cases := []struct {
 		in   interface{}

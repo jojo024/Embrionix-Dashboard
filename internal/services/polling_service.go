@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -404,7 +405,16 @@ func (s *PollingService) probeDualPath(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ok, ms := ProbeTCP(ctx, device.ManagementIPBlue, "80", timeout)
+			// The Blue interface on an EM6 typically answers ICMP but does not run
+			// the HTTP management server, so a TCP probe would falsely read offline.
+			// Default to ICMP for Blue; allow TCP via polling.blue_probe.
+			var ok bool
+			var ms int64
+			if strings.EqualFold(s.pollCfg.BlueProbe, "tcp") {
+				ok, ms = ProbeTCP(ctx, device.ManagementIPBlue, "80", timeout)
+			} else {
+				ok, ms = ProbeICMP(ctx, device.ManagementIPBlue, timeout)
+			}
 			state.ReachableBlue = &ok
 			state.ResponseMsBlue = ms
 			pollResult.ReachableBlue = &ok
