@@ -55,7 +55,7 @@ type DNSConfig struct {
 	DomainName    string `json:"domain_name"`
 }
 
-// --- Write request payloads (Phase 4b). Field names match the emSFP API so
+// --- Write request payloads . Field names match the emSFP API so
 // they marshal straight onto the device. ---
 
 // NetworkUpdate is the body for PUT /self/ipconfig. The device reboots to apply.

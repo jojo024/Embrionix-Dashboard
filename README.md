@@ -2,7 +2,6 @@
 
 A production-quality monitoring and management platform for **Embrionix EM6** devices, built with Go and React.
 
-![Phase](https://img.shields.io/badge/Phase-5%20Enterprise-blue)
 ![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -169,7 +168,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale.
 |------|----------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System design and decisions |
 | [API.md](API.md) | REST API reference |
-| [ROADMAP.md](ROADMAP.md) | Phased feature plan |
 | [PERFORMANCE.md](PERFORMANCE.md) | Network/device impact analysis & tuning |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Production deployment, services, updates, backups |
 | [INSTALLATION.md](INSTALLATION.md) | Detailed install guide |
