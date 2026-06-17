@@ -90,6 +90,44 @@ func TestDeriveStatus(t *testing.T) {
 	})
 }
 
+func TestMicroWattToDBm(t *testing.T) {
+	if _, ok := microWattToDBm(0); ok {
+		t.Error("0 µW should be invalid")
+	}
+	dbm, ok := microWattToDBm(353)
+	if !ok || dbm < -4.6 || dbm > -4.4 { // 353 µW ≈ -4.52 dBm
+		t.Errorf("353 µW: got %.2f dBm (ok=%v), want ≈ -4.52", dbm, ok)
+	}
+}
+
+func TestDeriveStatusTxPower(t *testing.T) {
+	s := &PollingService{alertCfg: config.AlertingConfig{
+		TempWarningC: 70, TempCriticalC: 75,
+		TxPowerWarnDBm: -6, TxPowerCritDBm: -9, TxPowerPorts: []int{3, 5},
+	}}
+	locked := &models.PTPStatus{Locked: true}
+
+	cases := []struct {
+		name   string
+		ports  []models.PortTelemetry
+		expect models.DeviceStatus
+	}{
+		{"healthy TX (~-3 dBm)", []models.PortTelemetry{{Port: 3, TxPower: 500}}, models.StatusOnline},
+		{"low TX (~-7 dBm) warns", []models.PortTelemetry{{Port: 3, TxPower: 200}}, models.StatusWarning},
+		{"very low TX (~-10 dBm) critical", []models.PortTelemetry{{Port: 5, TxPower: 100}}, models.StatusCritical},
+		{"low TX on unmonitored port ignored", []models.PortTelemetry{{Port: 1, TxPower: 100}}, models.StatusOnline},
+		{"no module (0 µW) ignored", []models.PortTelemetry{{Port: 3, TxPower: 0}}, models.StatusOnline},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			pd := &models.DevicePollingData{CoreTemp: 60, PTP: locked, Ports: c.ports}
+			if got := s.deriveStatus(pd, 0); got != c.expect {
+				t.Fatalf("got %q, want %q", got, c.expect)
+			}
+		})
+	}
+}
+
 func TestFleetAlarms(t *testing.T) {
 	s := &PollingService{results: map[string]*pollState{
 		"d1": {

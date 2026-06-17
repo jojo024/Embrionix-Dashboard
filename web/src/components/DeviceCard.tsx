@@ -7,7 +7,7 @@ import { StatusBadge } from './StatusBadge';
 import { Sparkline } from './Sparkline';
 import { useDeviceSparkline } from '../hooks/useDevices';
 import { formatRelativeTime } from '../utils/time';
-import { powerTodBm } from '../utils/optics';
+import { powerTodBm, txPowerClass } from '../utils/optics';
 
 interface Props {
   device: Device;
@@ -186,7 +186,7 @@ export function DeviceCard({ device }: Props) {
                     <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
                       <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
                       <div className="space-y-0.5 text-xs font-mono">
-                        <div className="text-blue-400">TX {powerTodBm(p.tx_power)}</div>
+                        <div className={txPowerClass(p.tx_power)}>TX {powerTodBm(p.tx_power)}</div>
                         <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
                         {n && (
                           <div className="text-slate-400 truncate" title={`LLDP neighbour ${n.chassis_id} port ${n.port_id}`}>
