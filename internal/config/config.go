@@ -54,11 +54,16 @@ type AuthConfig struct {
 
 // AlertingConfig holds tunable health thresholds and notification settings.
 type AlertingConfig struct {
-	TempWarningC     float64  `mapstructure:"temp_warning_c"`
-	TempCriticalC    float64  `mapstructure:"temp_critical_c"`
-	ResponseWarnMs   int64    `mapstructure:"response_warning_ms"`
-	WebhookURL       string   `mapstructure:"webhook_url"`
-	WebhookOn        []string `mapstructure:"webhook_on"` // statuses whose entry fires a webhook
+	TempWarningC   float64  `mapstructure:"temp_warning_c"`
+	TempCriticalC  float64  `mapstructure:"temp_critical_c"`
+	ResponseWarnMs int64    `mapstructure:"response_warning_ms"`
+	// SFP TX optical power (dBm) thresholds — a port's TX below the warn/crit level
+	// raises a warning/critical alarm. Set to 0 to disable (valid levels are < 0).
+	TxPowerWarnDBm float64 `mapstructure:"tx_power_warn_dbm"`
+	TxPowerCritDBm float64 `mapstructure:"tx_power_crit_dbm"`
+	TxPowerPorts   []int   `mapstructure:"tx_power_ports"` // ports to apply TX thresholds to (empty = all)
+	WebhookURL     string  `mapstructure:"webhook_url"`
+	WebhookOn      []string `mapstructure:"webhook_on"` // statuses whose entry fires a webhook
 }
 
 type ServerConfig struct {
@@ -116,6 +121,9 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("alerting.temp_warning_c", 70)
 	v.SetDefault("alerting.temp_critical_c", 75)
 	v.SetDefault("alerting.response_warning_ms", 6000)
+	v.SetDefault("alerting.tx_power_warn_dbm", -6.0)
+	v.SetDefault("alerting.tx_power_crit_dbm", -9.0)
+	v.SetDefault("alerting.tx_power_ports", []int{3, 5})
 	v.SetDefault("alerting.webhook_url", "")
 	v.SetDefault("alerting.webhook_on", []string{"critical", "offline"})
 	v.SetDefault("reports.enabled", false)

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -430,6 +431,30 @@ func (s *PollingService) probeDualPath(
 // API" warning is raised (backoff — these devices are routinely a little slow).
 const SlowWarnAfter = 3
 
+// microWattToDBm converts a raw SFP optical power reading (µW) to dBm. The
+// telemetry/ports power fields are in microwatts (353 µW = -4.52 dBm). Returns
+// false for non-positive (no module / no signal) readings.
+func microWattToDBm(uw int) (float64, bool) {
+	if uw <= 0 {
+		return 0, false
+	}
+	return 10 * math.Log10(float64(uw)/1000.0), true
+}
+
+// txPortMonitored reports whether a port is in the TX-power watch list (empty
+// list = all ports).
+func txPortMonitored(ports []int, port int) bool {
+	if len(ports) == 0 {
+		return true
+	}
+	for _, p := range ports {
+		if p == port {
+			return true
+		}
+	}
+	return false
+}
+
 // deriveStatus maps live polling data to a device status using all health
 // signals collected from the EM6 (alarms, temperature, PTP lock, link state)
 // against the configured alert thresholds. slowCount is the device's current
@@ -461,6 +486,26 @@ func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount in
 		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature critical (≥%.0f°C)", a.TempCriticalC))
 		status = models.StatusCritical
 	}
+	// SFP TX optical power below the configured dBm thresholds.
+	for _, p := range pd.Ports {
+		if !txPortMonitored(a.TxPowerPorts, p.Port) {
+			continue
+		}
+		dbm, ok := microWattToDBm(p.TxPower)
+		if !ok {
+			continue
+		}
+		if a.TxPowerCritDBm < 0 && dbm < a.TxPowerCritDBm {
+			pd.Alarms = append(pd.Alarms, fmt.Sprintf("Port %d: TX power critical (%.1f dBm)", p.Port, dbm))
+			status = models.StatusCritical
+		} else if a.TxPowerWarnDBm < 0 && dbm < a.TxPowerWarnDBm {
+			pd.Alarms = append(pd.Alarms, fmt.Sprintf("Port %d: TX power low (%.1f dBm)", p.Port, dbm))
+			if status == models.StatusOnline {
+				status = models.StatusWarning
+			}
+		}
+	}
+
 	// PTP not locked = timing loss; critical on a broadcast device.
 	if pd.PTP != nil && !pd.PTP.Locked {
 		status = models.StatusCritical
