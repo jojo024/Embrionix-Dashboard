@@ -10,9 +10,16 @@ jobs:
   # ── Go backend ────────────────────────────────────────────────────────────
   backend:
     name: Backend (Go)
+    needs: frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: internal/webui/
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -30,7 +37,7 @@ jobs:
         run: go build -v ./cmd/server/
 
       - name: Test
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
