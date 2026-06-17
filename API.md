@@ -263,7 +263,7 @@ Each section is best-effort and omitted if the device type does not implement it
 
 **Response 503** if the device is unreachable.
 
-## Authentication & users (Phase 5)
+## Authentication & users
 
 Auth is **disabled by default**; when off, all endpoints are open (implicit admin).
 When `auth.enabled` is true, send `Authorization: Bearer <jwt>` (from login) or
@@ -314,7 +314,7 @@ UI reloads when `/health` reports the new version. Requires `updates.enabled`.
 List / create / update (role or password) / delete users. The last remaining
 account cannot be deleted.
 
-## Configuration writes & device actions (Phase 4b)
+## Configuration writes & device actions
 
 All writes proxy a PUT to the device and are recorded in the audit log
 (`GET /api/v1/audit`). Inputs are validated server-side (IPv4 / CIDR / port
@@ -437,8 +437,8 @@ polled in the monitoring product (rationale in [ISSUES.md](ISSUES.md)).
 | `/port`, `/port/{id}` | ✅ | SFP DDM (temp, VCC, bias, TX/RX power, alarms) |
 | `/sdi` | ✅ | SDI operating bit rate |
 | `/self/protocols`, `/self/syslog`, `/self/static_route`, `/self/diag/dns` | ❌ | Config-plane (settings, not health) |
-| `/sources`, `/receivers`, `/senders`, `/flows`, `/sdp`, `/route`, `/clean_switch` | ❌ | Media routing — Phase 4 config management |
-| `/black_burst`, `/sdi_input`, `/sdi_audio`, `/sdi_output` | ❌ | Media I/O config — Phase 4 |
+| `/sources`, `/receivers`, `/senders`, `/flows`, `/sdp`, `/route`, `/clean_switch` | ❌ | Media routing (config-plane, not health) |
+| `/black_burst`, `/sdi_input`, `/sdi_audio`, `/sdi_output` | ❌ | Media I/O config (config-plane, not health) |
 
 All polled endpoints are fetched best-effort: a failure on any single endpoint
 is tolerated (the device may not implement it for its type) and does not abort
