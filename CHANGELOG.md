@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — SFP TX optical power thresholds
+- A port's **TX power below −6 dBm raises a warning, below −9 dBm a critical**
+  alarm (configurable: `alerting.tx_power_warn_dbm` / `tx_power_crit_dbm`, applied
+  to `tx_power_ports`, default ports 3 & 5). The card's TX reading is coloured
+  amber/red accordingly. Thresholds surfaced in `GET /api/v1/config`.
+
 ### Changed — alarm severity & slow-response backoff
 - **Slow-API warning backoff**: a slow-response warning is now raised only after
   **several consecutive slow polls** (`SlowWarnAfter`, default 3), not on a single
