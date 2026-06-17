@@ -239,7 +239,7 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 	}
 
 	timeout := time.Duration(s.pollCfg.TimeoutSeconds) * time.Second
-	now := time.Now()
+	now := time.Now().UTC()
 
 	state := &pollState{LastPolledAt: &now}
 	pollResult := &models.PollResult{
