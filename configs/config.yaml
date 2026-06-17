@@ -14,7 +14,10 @@ polling:
   interval_seconds: 30
   timeout_seconds: 10
   retry_count: 2
-  icmp_enabled: true             # independent L4 (TCP) reachability probe per Red/Blue path
+  icmp_enabled: true             # run the independent per-path reachability probe each cycle
+  blue_probe: "icmp"             # how to check the Blue path: "icmp" (OS ping) or "tcp" (connect :80).
+                                 #   EM6 Blue interfaces answer ICMP but not TCP, so "icmp" is the default.
+                                 #   Red is always probed via TCP (it runs the HTTP management API).
   history_retention_days: 30     # poll history older than this is pruned daily (0 = keep forever)
   full_every: 10                 # every Nth cycle does a full poll (all endpoints); others fetch only
                                  #   dynamic health (~6 reqs vs ~17). At interval 30s, full poll ≈ every 5 min.
