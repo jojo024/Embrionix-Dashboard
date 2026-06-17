@@ -113,11 +113,11 @@ func TestDeriveStatusTxPower(t *testing.T) {
 		ports  []models.PortTelemetry
 		expect models.DeviceStatus
 	}{
-		{"healthy TX (~-3 dBm)", []models.PortTelemetry{{Port: 3, TxPower: 500}}, models.StatusOnline},
-		{"low TX (~-7 dBm) warns", []models.PortTelemetry{{Port: 3, TxPower: 200}}, models.StatusWarning},
-		{"very low TX (~-10 dBm) critical", []models.PortTelemetry{{Port: 5, TxPower: 100}}, models.StatusCritical},
-		{"low TX on unmonitored port ignored", []models.PortTelemetry{{Port: 1, TxPower: 100}}, models.StatusOnline},
-		{"no module (0 µW) ignored", []models.PortTelemetry{{Port: 3, TxPower: 0}}, models.StatusOnline},
+		{"healthy TX (~-3 dBm)", []models.PortTelemetry{{Port: 3, TxPowerUW: 500}}, models.StatusOnline},
+		{"low TX (~-7 dBm) warns", []models.PortTelemetry{{Port: 3, TxPowerUW: 200}}, models.StatusWarning},
+		{"very low TX (~-10 dBm) critical", []models.PortTelemetry{{Port: 5, TxPowerUW: 100}}, models.StatusCritical},
+		{"low TX on unmonitored port ignored", []models.PortTelemetry{{Port: 1, TxPowerUW: 100}}, models.StatusOnline},
+		{"no module (0 µW) ignored", []models.PortTelemetry{{Port: 3, TxPowerUW: 0}}, models.StatusOnline},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
