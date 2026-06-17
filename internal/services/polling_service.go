@@ -342,16 +342,16 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 		}
 
 		if len(pollingData.Ports) > 0 {
-			p0tx := pollingData.Ports[0].TxPowerUW
-			p0rx := pollingData.Ports[0].RxPowerUW
+			p0tx := pollingData.Ports[0].TxPower
+			p0rx := pollingData.Ports[0].RxPower
 			p0t := pollingData.Ports[0].Temperature
 			pollResult.Port0TxPower = &p0tx
 			pollResult.Port0RxPower = &p0rx
 			pollResult.Port0Temp = &p0t
 		}
 		if len(pollingData.Ports) > 1 {
-			p1tx := pollingData.Ports[1].TxPowerUW
-			p1rx := pollingData.Ports[1].RxPowerUW
+			p1tx := pollingData.Ports[1].TxPower
+			p1rx := pollingData.Ports[1].RxPower
 			p1t := pollingData.Ports[1].Temperature
 			pollResult.Port1TxPower = &p1tx
 			pollResult.Port1RxPower = &p1rx
@@ -442,11 +442,6 @@ func (s *PollingService) EnrichDevice(device *models.Device) {
 	device.LastPolledAt = state.LastPolledAt
 	device.PollingData = state.Data
 
-	// Convert port power from µW to dBm for API response
-	if device.PollingData != nil && len(device.PollingData.Ports) > 0 {
-		convertPortTelemetryPowerUnits(device.PollingData.Ports)
-	}
-
 	// Prefer independent dual-path results when available; otherwise fall back
 	// to the single API-poll reachability for the Red (primary) path.
 	if state.ReachableRed != nil {
@@ -514,21 +509,6 @@ func microWattToDBm(uw int) (float64, bool) {
 	return 10 * math.Log10(float64(uw)/1000.0), true
 }
 
-// convertPortTelemetryPowerUnits converts PortTelemetry power from µW to dBm for API response.
-// Preserves raw µW values in separate fields for internal logic.
-func convertPortTelemetryPowerUnits(ports []models.PortTelemetry) {
-	for i := range ports {
-		if ports[i].TxPowerUW > 0 {
-			dbm, _ := microWattToDBm(ports[i].TxPowerUW)
-			ports[i].TxPower = &dbm
-		}
-		if ports[i].RxPowerUW > 0 {
-			dbm, _ := microWattToDBm(ports[i].RxPowerUW)
-			ports[i].RxPower = &dbm
-		}
-	}
-}
-
 // txPortMonitored reports whether a port is in the TX-power watch list (empty
 // list = all ports).
 func txPortMonitored(ports []int, port int) bool {
@@ -579,7 +559,7 @@ func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount in
 		if !txPortMonitored(a.TxPowerPorts, p.Port) {
 			continue
 		}
-		dbm, ok := microWattToDBm(p.TxPowerUW)
+		dbm, ok := microWattToDBm(p.TxPower)
 		if !ok {
 			continue
 		}

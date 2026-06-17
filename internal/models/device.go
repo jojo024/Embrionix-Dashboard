@@ -181,12 +181,10 @@ type MediaDeviceTelemetry struct {
 }
 
 type PortTelemetry struct {
-	Port        int      `json:"port"`
-	Temperature float64  `json:"temperature"`
-	TxPower     *float64 `json:"tx_power"`      // dBm (converted from µW in internal storage)
-	RxPower     *float64 `json:"rx_power"`      // dBm (converted from µW in internal storage)
-	TxPowerUW   int      `json:"tx_power_uw"`   // raw microwatts
-	RxPowerUW   int      `json:"rx_power_uw"`   // raw microwatts
+	Port        int     `json:"port"`
+	Temperature float64 `json:"temperature"`
+	TxPower     int     `json:"tx_power"`
+	RxPower     int     `json:"rx_power"`
 }
 
 type PortDetail struct {
