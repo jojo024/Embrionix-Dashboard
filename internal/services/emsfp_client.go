@@ -279,12 +279,46 @@ type selfInterfaceEntry struct {
 	VLAN           int    `json:"vlan"`
 }
 
+// lldpResponse: /lldp returns `neighbor` as either a single object (one-interface
+// devices) or an array of per-interface objects (multi-port devices). Parsed as
+// RawMessage and decoded both ways.
 type lldpResponse struct {
-	Neighbor struct {
-		Chassis string `json:"chassis"`
-		Port    string `json:"port"`
-		TTL     string `json:"ttl"`
-	} `json:"neighbor"`
+	Neighbor json.RawMessage `json:"neighbor"`
+}
+
+type lldpNeighborRaw struct {
+	Interface int    `json:"interface"`
+	Chassis   string `json:"chassis"`
+	Port      string `json:"port"`
+	TTL       string `json:"ttl"`
+}
+
+// parseLLDPNeighbors decodes the polymorphic `neighbor` field into a flat list.
+func parseLLDPNeighbors(raw json.RawMessage) []models.LLDPNeighbor {
+	if len(raw) == 0 {
+		return nil
+	}
+	var list []lldpNeighborRaw
+	if err := json.Unmarshal(raw, &list); err != nil {
+		var single lldpNeighborRaw
+		if err2 := json.Unmarshal(raw, &single); err2 != nil {
+			return nil
+		}
+		list = []lldpNeighborRaw{single}
+	}
+	out := make([]models.LLDPNeighbor, 0, len(list))
+	for _, n := range list {
+		if n.Chassis == "" {
+			continue
+		}
+		out = append(out, models.LLDPNeighbor{
+			Interface: n.Interface,
+			ChassisID: n.Chassis,
+			PortID:    n.Port,
+			TTL:       n.TTL,
+		})
+	}
+	return out
 }
 
 type telemetryDevices struct {
@@ -487,11 +521,10 @@ func (c *EmsfpClient) pollSlow(ctx context.Context, data *models.DevicePollingDa
 	}
 
 	var lldp lldpResponse
-	if err := c.get(ctx, "/lldp", &lldp); err == nil && lldp.Neighbor.Chassis != "" {
-		data.LLDP = &models.LLDPNeighbor{
-			ChassisID: lldp.Neighbor.Chassis,
-			PortID:    lldp.Neighbor.Port,
-			TTL:       lldp.Neighbor.TTL,
+	if err := c.get(ctx, "/lldp", &lldp); err == nil {
+		if neighbors := parseLLDPNeighbors(lldp.Neighbor); len(neighbors) > 0 {
+			data.LLDPNeighbors = neighbors
+			data.LLDP = &neighbors[0] // primary, for compatibility
 		}
 	}
 
@@ -575,6 +608,7 @@ func carrySlowData(data, prev *models.DevicePollingData) {
 	data.Ethernet = prev.Ethernet
 	data.Interfaces = prev.Interfaces
 	data.LLDP = prev.LLDP
+	data.LLDPNeighbors = prev.LLDPNeighbors
 	data.MediaDevices = prev.MediaDevices
 	data.SDIBitRate = prev.SDIBitRate
 	data.PortDetails = prev.PortDetails

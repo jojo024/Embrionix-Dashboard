@@ -430,7 +430,7 @@ polled in the monitoring product (rationale in [ISSUES.md](ISSUES.md)).
 | `/self/diag/ethernet` | ✅ | Control-plane TX/RX packets + RX errors |
 | `/self/diag/common` | ✅ | Video bandwidth usage, watchdog, IPv4 drops |
 | `/self/interfaces` | ✅ | Per-interface (e1/e2) IP, gateway, DHCP, VLAN |
-| `/lldp` | ✅ | Discovered neighbour (chassis, port, TTL) |
+| `/lldp` | ✅ | Discovered neighbour(s) per local interface (chassis, remote port, TTL) |
 | `/telemetry/node` | ✅ | Health + refclk summary |
 | `/telemetry/ports` | ✅ | Per-port SFP TX/RX power, temperature |
 | `/telemetry/devices` | ✅ | Media-flow packet counters, validity |

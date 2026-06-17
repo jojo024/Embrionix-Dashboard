@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added — per-interface LLDP neighbours
+- `/lldp` now parses both response shapes (single object **and** the per-interface
+  **array**), capturing each neighbour's local `interface` along with chassis /
+  remote port / TTL. Previously only one neighbour was captured.
+- **Device card**: the LLDP remote port is shown **next to the matching SFP port**
+  (3 & 5), matched by local interface number.
+- **Device → Interfaces tab**: lists **all** LLDP neighbours with chassis ID,
+  remote port, local port and TTL.
+- (LLDP exposes no neighbour hostname — chassis MAC is the identifier.)
+
 ### Fixed — Blue-path reachability for EM6 hardware
 - The Blue management interface on an EM6 answers **ICMP but not TCP** (it doesn't
   run the HTTP server), so the previous TCP-on-both-paths probe always read Blue
