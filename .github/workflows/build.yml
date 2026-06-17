@@ -19,7 +19,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: internal/webui/
+          path: internal/webui/dist/
 
       - name: Set up Go
         uses: actions/setup-go@v5
