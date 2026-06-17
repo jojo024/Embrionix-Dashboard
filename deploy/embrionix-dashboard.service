@@ -1,0 +1,32 @@
+# systemd unit for Embrionix Dashboard (Linux).
+#
+# Install:
+#   sudo cp embrionix-dashboard /opt/embrionix/embrionix-dashboard
+#   sudo cp config.yaml          /opt/embrionix/config.yaml
+#   sudo cp embrionix-dashboard.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now embrionix-dashboard
+#
+# IMPORTANT: set `updates.restart_mode: "exit"` in config.yaml so that an
+# in-app self-update exits cleanly and systemd restarts the new binary
+# (Restart=always below). With "self" the app would fight systemd for the port.
+
+[Unit]
+Description=Embrionix Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/embrionix
+ExecStart=/opt/embrionix/embrionix-dashboard /opt/embrionix/config.yaml
+Restart=always
+RestartSec=3
+# The self-update rewrites the binary in place, so the unit must be allowed to
+# execute a changed file on restart (default behaviour — no extra hardening that
+# would lock the binary).
+User=embrionix
+Group=embrionix
+
+[Install]
+WantedBy=multi-user.target
