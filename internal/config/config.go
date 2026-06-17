@@ -107,7 +107,7 @@ func Load(path string) (*Config, error) {
 	v.SetConfigType("yaml")
 
 	v.SetDefault("server.host", "0.0.0.0")
-	v.SetDefault("server.port", 8080)
+	v.SetDefault("server.port", 5555)
 	v.SetDefault("server.mode", "debug")
 	v.SetDefault("database.path", "./data/embrionix.db")
 	v.SetDefault("logging.level", "info")
