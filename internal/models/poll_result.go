@@ -27,6 +27,13 @@ type PollResult struct {
 	Port1RxPower *int     `json:"port1_rx_power"`
 	Port1Temp    *float64 `json:"port1_temp"`
 
+	// Optical data ports 3 & 5 (the fibre SFPs) — tracked for the power history
+	// chart. Nullable: a device may not populate every port.
+	Port3TxPower *int `json:"port3_tx_power"`
+	Port3RxPower *int `json:"port3_rx_power"`
+	Port5TxPower *int `json:"port5_tx_power"`
+	Port5RxPower *int `json:"port5_rx_power"`
+
 	// PTP / refclk trend
 	PTPLocked *bool  `json:"ptp_locked"`
 	PTPOffset *int64 `json:"ptp_offset"`

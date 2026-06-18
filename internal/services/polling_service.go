@@ -357,6 +357,19 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 			pollResult.Port1RxPower = &p1rx
 			pollResult.Port1Temp = &p1t
 		}
+		// Optical data ports 3 & 5 (fibre SFPs) for the power-history chart.
+		for _, p := range pollingData.Ports {
+			switch p.Port {
+			case 3:
+				tx, rx := p.TxPower, p.RxPower
+				pollResult.Port3TxPower = &tx
+				pollResult.Port3RxPower = &rx
+			case 5:
+				tx, rx := p.TxPower, p.RxPower
+				pollResult.Port5TxPower = &tx
+				pollResult.Port5RxPower = &rx
+			}
+		}
 
 		logger.Debug("device polled successfully",
 			zap.String("device", device.Name),

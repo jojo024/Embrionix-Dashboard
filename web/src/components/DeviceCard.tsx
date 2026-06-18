@@ -8,6 +8,7 @@ import { Sparkline } from './Sparkline';
 import { useDeviceSparkline } from '../hooks/useDevices';
 import { formatRelativeTime } from '../utils/time';
 import { readableFirmware } from '../utils/firmware';
+import { ipConfigIssues } from '../utils/ipconfig';
 import { powerTodBm, txPowerClass } from '../utils/optics';
 
 interface Props {
@@ -54,6 +55,7 @@ function NetworkStatus({ label, reachable }: { label: string; reachable?: boolea
 export function DeviceCard({ device }: Props) {
   const navigate = useNavigate();
   const pd = device.polling_data;
+  const ipIssues = ipConfigIssues(device);
   const { data: spark } = useDeviceSparkline(device.id);
   const [dismissedAlarms, setDismissedAlarms] = useState<boolean>(false);
   const [showTempGraph, setShowTempGraph] = useState<boolean>(false);
@@ -172,6 +174,17 @@ export function DeviceCard({ device }: Props) {
             />
           )}
         </div>
+
+        {/* IP config mismatch indicator */}
+        {ipIssues.length > 0 && (
+          <div
+            className="flex items-center gap-1.5 text-xs text-amber-400"
+            title={ipIssues.join('\n')}
+          >
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            <span>IP config mismatch</span>
+          </div>
+        )}
 
         {/* SFP light levels — ports 3 & 5 only, with per-port LLDP neighbour.
             LLDP reports local interfaces as 1 & 2, which map to ports 3 & 5. */}

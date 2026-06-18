@@ -155,7 +155,9 @@ func (h *MonitoringHandler) ExportDeviceHistoryCSV(c *gin.Context) {
 	defer w.Flush()
 	_ = w.Write([]string{
 		"polled_at", "reachable", "response_ms", "core_temp", "fan_speed",
-		"core_voltage", "port0_tx_power", "port0_rx_power", "ptp_locked", "ptp_offset",
+		"core_voltage", "port0_tx_power", "port0_rx_power",
+		"port3_tx_power", "port3_rx_power", "port5_tx_power", "port5_rx_power",
+		"ptp_locked", "ptp_offset",
 	})
 	for _, r := range results {
 		_ = w.Write([]string{
@@ -164,6 +166,8 @@ func (h *MonitoringHandler) ExportDeviceHistoryCSV(c *gin.Context) {
 			strconv.FormatInt(r.ResponseMs, 10),
 			floatPtr(r.CoreTemp), intPtr(r.FanSpeed), intPtr(r.CoreVoltage),
 			intPtr(r.Port0TxPower), intPtr(r.Port0RxPower),
+			intPtr(r.Port3TxPower), intPtr(r.Port3RxPower),
+			intPtr(r.Port5TxPower), intPtr(r.Port5RxPower),
 			boolPtr(r.PTPLocked), int64Ptr(r.PTPOffset),
 		})
 	}

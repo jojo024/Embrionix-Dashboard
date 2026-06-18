@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { RefreshCw, Wifi, WifiOff, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useDevices, useSummary } from '../hooks/useDevices'
@@ -10,6 +11,7 @@ import {
 } from 'recharts'
 
 export function MonitoringPage() {
+  const navigate = useNavigate()
   const { data: deviceData, isLoading, refetch, isFetching } = useDevices()
   const { data: summary } = useSummary()
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'temp'>('status')
@@ -154,7 +156,11 @@ export function MonitoringPage() {
                   const pd = device.polling_data
                   const primaryPort = pd?.ports?.[0]
                   return (
-                    <tr key={device.id} className="hover:bg-surface-800/50 transition-colors">
+                    <tr
+                      key={device.id}
+                      onClick={() => navigate(`/devices/${device.id}`)}
+                      className="hover:bg-surface-800/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3">
                         <StatusBadge status={device.status} />
                       </td>

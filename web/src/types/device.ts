@@ -208,6 +208,10 @@ export interface PollResult {
   port1_tx_power?: number;
   port1_rx_power?: number;
   port1_temp?: number;
+  port3_tx_power?: number;
+  port3_rx_power?: number;
+  port5_tx_power?: number;
+  port5_rx_power?: number;
   ptp_locked?: boolean;
   ptp_offset?: number;
   reachable_red?: boolean;

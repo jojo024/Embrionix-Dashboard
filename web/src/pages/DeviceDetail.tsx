@@ -17,6 +17,7 @@ import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDate, formatRelativeTime } from '../utils/time'
 import { readableFirmware } from '../utils/firmware'
+import { ipConfigIssues } from '../utils/ipconfig'
 
 type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'config' | 'logs'
 
@@ -61,6 +62,7 @@ function MetricCard({ label, value, unit, warn, icon: Icon }: {
 function OverviewTab({ device }: { device: ReturnType<typeof useDevice>['data'] }) {
   if (!device) return null
   const pd = device.polling_data
+  const ipIssues = ipConfigIssues(device)
 
   return (
     <div className="space-y-6">
@@ -115,6 +117,17 @@ function OverviewTab({ device }: { device: ReturnType<typeof useDevice>['data'] 
         {/* Network info */}
         <div className="card p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Network</h3>
+          {ipIssues.length > 0 && (
+            <div className="mb-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-md px-2.5 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+              <div className="text-xs text-amber-300 space-y-0.5">
+                <div className="font-medium">IP config mismatch</div>
+                {ipIssues.map((m, i) => (
+                  <div key={i} className="font-mono text-amber-300/80">{m}</div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between py-2.5 border-b border-surface-800 gap-4">
             <span className="text-xs text-slate-500 shrink-0 w-40">IP (Red)</span>
             <span className="flex items-center gap-2 text-xs font-mono text-slate-300">
@@ -401,13 +414,16 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
   const chartData = [...history].reverse().map(r => ({
     time: new Date(r.polled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     temp: r.core_temp ?? null,
-    p0tx: r.port0_tx_power ?? null,
-    p0rx: r.port0_rx_power ?? null,
+    p3tx: r.port3_tx_power ?? null,
+    p3rx: r.port3_rx_power ?? null,
+    p5tx: r.port5_tx_power ?? null,
+    p5rx: r.port5_rx_power ?? null,
     ptp: r.ptp_offset ?? null,
     ms: r.response_ms,
   }))
 
   const hasPtp = chartData.some(d => d.ptp != null)
+  const hasSfp = chartData.some(d => d.p3tx != null || d.p3rx != null || d.p5tx != null || d.p5rx != null)
 
   return (
     <div className="space-y-6">
@@ -440,24 +456,28 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
         </ResponsiveContainer>
       </div>
 
-      {/* SFP power chart */}
-      <div className="card p-4">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Port 0 SFP Power (µW)</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-            <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} />
-            <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-            <Tooltip
-              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
-              labelStyle={{ color: '#94a3b8' }}
-            />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="p0tx" stroke="#3b82f6" dot={false} strokeWidth={2} name="TX Power" />
-            <Line type="monotone" dataKey="p0rx" stroke="#22c55e" dot={false} strokeWidth={2} name="RX Power" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {/* SFP power chart — optical data ports 3 & 5 (fibre SFPs) */}
+      {hasSfp && (
+        <div className="card p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">SFP Power — Ports 3 &amp; 5 (µW)</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                labelStyle={{ color: '#94a3b8' }}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="p3tx" stroke="#3b82f6" dot={false} strokeWidth={2} name="P3 TX" connectNulls />
+              <Line type="monotone" dataKey="p3rx" stroke="#22c55e" dot={false} strokeWidth={2} name="P3 RX" connectNulls />
+              <Line type="monotone" dataKey="p5tx" stroke="#a78bfa" dot={false} strokeWidth={2} name="P5 TX" connectNulls />
+              <Line type="monotone" dataKey="p5rx" stroke="#f59e0b" dot={false} strokeWidth={2} name="P5 RX" connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* PTP offset chart */}
       {hasPtp && (
@@ -506,7 +526,7 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-surface-900">
               <tr className="border-b border-surface-700">
-                {['Time', 'Reachable', 'Response', 'Temp', 'Fan', 'P0 TX', 'P0 RX'].map(h => (
+                {['Time', 'Reachable', 'Response', 'Temp', 'Fan', 'P3 TX', 'P3 RX', 'P5 TX', 'P5 RX'].map(h => (
                   <th key={h} className="px-3 py-2 text-left font-medium text-slate-500">{h}</th>
                 ))}
               </tr>
@@ -523,8 +543,10 @@ function MonitoringTab({ deviceId }: { deviceId: string }) {
                   <td className="px-3 py-2 font-mono text-slate-400">{r.response_ms}ms</td>
                   <td className="px-3 py-2 font-mono text-slate-400">{r.core_temp?.toFixed(1) ?? '—'}</td>
                   <td className="px-3 py-2 font-mono text-slate-400">{r.fan_speed ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono text-blue-400">{r.port0_tx_power ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono text-green-400">{r.port0_rx_power ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-blue-400">{r.port3_tx_power ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-green-400">{r.port3_rx_power ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-violet-400">{r.port5_tx_power ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-amber-400">{r.port5_rx_power ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

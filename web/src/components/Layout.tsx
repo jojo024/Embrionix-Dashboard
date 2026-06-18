@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Server, Settings, Activity, Menu, X, Radio, LogOut, UserCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { clsx } from 'clsx';
 import { useApiStatus } from '../hooks/useApiStatus';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,12 +17,30 @@ const NAV = [
 
 interface Props { children: React.ReactNode }
 
+const COLLAPSE_KEY = 'emb:sidebar-collapsed';
+
 export function Layout({ children }: Props) {
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Single collapse state for both mobile and desktop. Default: collapsed on
+  // small screens, expanded on large; remembered across sessions once toggled.
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem(COLLAPSE_KEY);
+    if (saved != null) return saved === '1';
+    return window.matchMedia('(max-width: 1023px)').matches;
+  });
   const apiConnected = useApiStatus();
   const { authEnabled, username, role, logout } = useAuth();
   const { data: version } = useVersion();
+
+  useEffect(() => {
+    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+  }, [collapsed]);
+
+  // Collapse after navigating on small screens (where the sidebar overlays
+  // content), but keep it open on desktop.
+  const closeOnMobile = () => {
+    if (window.matchMedia('(max-width: 1023px)').matches) setCollapsed(true);
+  };
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
@@ -30,8 +48,8 @@ export function Layout({ children }: Props) {
       <aside
         className={clsx(
           'fixed inset-y-0 left-0 z-40 flex flex-col w-60 bg-surface-900 border-r border-surface-700',
-          'transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          'transition-transform duration-200 lg:static lg:inset-auto',
+          collapsed ? '-translate-x-full lg:hidden' : 'translate-x-0 lg:flex',
         )}
       >
         {/* Logo */}
@@ -53,7 +71,7 @@ export function Layout({ children }: Props) {
               <Link
                 key={to}
                 to={to}
-                onClick={() => setSidebarOpen(false)}
+                onClick={closeOnMobile}
                 className={clsx(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   active
@@ -75,10 +93,10 @@ export function Layout({ children }: Props) {
       </aside>
 
       {/* Mobile overlay */}
-      {sidebarOpen && (
+      {!collapsed && (
         <div
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setCollapsed(true)}
         />
       )}
 
@@ -87,10 +105,12 @@ export function Layout({ children }: Props) {
         {/* Top bar */}
         <header className="flex items-center gap-3 h-16 px-6 bg-surface-900 border-b border-surface-700 shrink-0">
           <button
-            className="lg:hidden btn-ghost p-1.5"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="btn-ghost p-1.5"
+            onClick={() => setCollapsed(c => !c)}
+            title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {collapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-2 text-xs text-slate-500">

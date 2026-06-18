@@ -2,6 +2,7 @@ import { LayoutGrid, Table2, AlertTriangle, CheckCircle2, WifiOff, RefreshCw } f
 import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useDevices, useSummary } from '../hooks/useDevices';
+import { useCardOrder } from '../hooks/useCardOrder';
 import { DeviceCard } from '../components/DeviceCard';
 import { DeviceTable } from '../components/DeviceTable';
 import { StatusBadge } from '../components/StatusBadge';
@@ -52,7 +53,14 @@ export function Dashboard() {
   const { data: summary } = useSummary();
 
   const devices = deviceData?.devices ?? [];
-  const filtered = filter === 'all' ? devices : devices.filter(d => d.status === filter);
+  const { ordered, move } = useCardOrder(devices);
+  const filtered = filter === 'all' ? ordered : ordered.filter(d => d.status === filter);
+
+  // Drag-to-reorder is only enabled in the unfiltered card view, so the saved
+  // order always reflects the full fleet.
+  const reorderable = view === 'card' && filter === 'all';
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -132,6 +140,10 @@ export function Dashboard() {
         </div>
       </div>
 
+      {reorderable && filtered.length > 1 && (
+        <p className="text-xs text-slate-600">Drag cards to reorder · saved in this browser</p>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -155,7 +167,26 @@ export function Dashboard() {
       ) : view === 'card' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(device => (
-            <DeviceCard key={device.id} device={device} />
+            <div
+              key={device.id}
+              draggable={reorderable}
+              onDragStart={reorderable ? () => setDraggingId(device.id) : undefined}
+              onDragEnd={reorderable ? () => { setDraggingId(null); setDragOverId(null); } : undefined}
+              onDragOver={reorderable ? (e) => { e.preventDefault(); setDragOverId(device.id); } : undefined}
+              onDrop={reorderable ? (e) => {
+                e.preventDefault();
+                if (draggingId) move(draggingId, device.id);
+                setDraggingId(null);
+                setDragOverId(null);
+              } : undefined}
+              className={clsx(
+                reorderable && 'cursor-grab active:cursor-grabbing',
+                draggingId === device.id && 'opacity-40',
+                dragOverId === device.id && draggingId && draggingId !== device.id && 'ring-2 ring-brand-500/60 rounded-xl',
+              )}
+            >
+              <DeviceCard device={device} />
+            </div>
           ))}
         </div>
       ) : (
