@@ -1,9 +1,12 @@
 import type { Device } from '../types/device';
 
-// Treat unset / 0.0.0.0 as empty.
+// Normalize an IP address: strip CIDR prefix (/24, /30, etc), trim whitespace,
+// and treat unset / 0.0.0.0 as empty.
 function norm(ip?: string): string {
   const v = (ip ?? '').trim();
-  return v === '0.0.0.0' ? '' : v;
+  if (v === '0.0.0.0' || v === '') return '';
+  // Remove CIDR suffix (e.g., "10.143.225.178/30" → "10.143.225.178")
+  return v.split('/')[0];
 }
 
 // ipConfigIssues returns human-readable warnings about address mismatches for a
