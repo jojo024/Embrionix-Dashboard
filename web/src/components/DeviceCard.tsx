@@ -173,29 +173,34 @@ export function DeviceCard({ device }: Props) {
           )}
         </div>
 
-        {/* SFP light levels — ports 3 & 5 only, with per-port LLDP neighbour */}
+        {/* SFP light levels — ports 3 & 5 only, with per-port LLDP neighbour.
+            LLDP reports local interfaces as 1 & 2, which map to ports 3 & 5. */}
         {pd?.ports && (
           (() => {
             const relevantPorts = pd.ports.filter(p => p.port === 3 || p.port === 5)
             const neighbors = pd.lldp_neighbors ?? (pd.lldp ? [pd.lldp] : [])
-            const neighborFor = (port: number) => neighbors.find(n => n.interface === port)
+            const portToInterface: Record<number, number> = { 3: 1, 5: 2 }
+            const neighborFor = (port: number) => neighbors.find(n => n.interface === portToInterface[port])
             return relevantPorts.length > 0 ? (
               <div className="grid grid-cols-2 gap-1.5">
                 {relevantPorts.map((p) => {
                   const n = neighborFor(p.port)
                   return (
                     <div key={p.port} className="bg-surface-800 rounded-md px-2 py-1">
-                      <div className="text-xs text-slate-500 mb-0.5">Port {p.port}</div>
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className="text-xs text-slate-500 shrink-0">Port {p.port}</span>
+                        {n?.port_id && (
+                          <span
+                            className="text-xs font-mono text-slate-400 truncate"
+                            title={`LLDP neighbour: chassis ${n.chassis_id}, port ${n.port_id}`}
+                          >
+                            {n.port_id}
+                          </span>
+                        )}
+                      </div>
                       <div className="space-y-0.5 text-xs font-mono">
                         <div className={txPowerClass(p.tx_power)}>TX {powerTodBm(p.tx_power)}</div>
                         <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
-                        {n ? (
-                          <div className="text-slate-400 truncate" title={`LLDP neighbour: chassis ${n.chassis_id}, port ${n.port_id}`}>
-                            LLDP {n.port_id || n.chassis_id}
-                          </div>
-                        ) : (
-                          <div className="text-slate-600 truncate">LLDP —</div>
-                        )}
                       </div>
                     </div>
                   )

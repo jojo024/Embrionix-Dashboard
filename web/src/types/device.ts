@@ -87,9 +87,9 @@ export interface NetworkInterface {
 }
 
 export interface LLDPNeighbor {
-  interface: number;   // local physical interface (matches the SFP port number)
+  interface: number;   // local physical interface: 1 & 2 map to SFP ports 3 & 5
   chassis_id: string;
-  port_id: string;
+  port_id: string;     // neighbour's port name, e.g. "Ethernet3/20/1"
   ttl: string;
 }
 
