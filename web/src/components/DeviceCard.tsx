@@ -189,10 +189,12 @@ export function DeviceCard({ device }: Props) {
                       <div className="space-y-0.5 text-xs font-mono">
                         <div className={txPowerClass(p.tx_power)}>TX {powerTodBm(p.tx_power)}</div>
                         <div className="text-green-400">RX {powerTodBm(p.rx_power)}</div>
-                        {n && (
-                          <div className="text-slate-400 truncate" title={`LLDP neighbour ${n.chassis_id} port ${n.port_id}`}>
-                            ↳ {n.port_id || n.chassis_id}
+                        {n ? (
+                          <div className="text-slate-400 truncate" title={`LLDP neighbour: chassis ${n.chassis_id}, port ${n.port_id}`}>
+                            LLDP {n.port_id || n.chassis_id}
                           </div>
+                        ) : (
+                          <div className="text-slate-600 truncate">LLDP —</div>
                         )}
                       </div>
                     </div>
@@ -219,18 +221,6 @@ export function DeviceCard({ device }: Props) {
         {dismissedAlarms && (pd?.alarms?.length ?? 0) > 0 && (
           <div className="text-xs text-slate-500 px-2 py-1 border border-dashed border-slate-700 rounded-md">
             {(pd?.alarms?.length ?? 0)} alarm{(pd?.alarms?.length ?? 0) !== 1 ? 's' : ''} dismissed
-          </div>
-        )}
-
-        {/* Power warnings — zero power on active ports */}
-        {(pd?.power_warnings && pd.power_warnings.length > 0) && (
-          <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-md px-2 py-1">
-            <Zap className="w-3 h-3 text-orange-400 mt-0.5 shrink-0" />
-            <div className="flex-1 text-xs text-orange-300">
-              {pd.power_warnings.map((w: string, i: number) => (
-                <div key={i}>{w}</div>
-              ))}
-            </div>
           </div>
         )}
       </div>

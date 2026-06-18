@@ -324,9 +324,6 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 		state.Reachable = true
 		state.Data = pollingData
 
-		// Check for power warnings (zero power on active ports)
-		checkPowerWarnings(pollingData)
-
 		state.Status = s.deriveStatus(pollingData, device.SlowResponseCount)
 
 		pollResult.Reachable = true
@@ -526,31 +523,6 @@ func txPortMonitored(ports []int, port int) bool {
 	return false
 }
 
-// checkPowerWarnings detects SFP ports with zero power while link is active.
-// This usually indicates a configuration or hardware issue.
-func checkPowerWarnings(pd *models.DevicePollingData) {
-	for _, p := range pd.PortDetails {
-		// Skip if no DDM data or link is not up
-		if p.DDM == nil || !strings.EqualFold(p.Link, "up") {
-			continue
-		}
-
-		warnings := []string{}
-		if p.DDM.TxPower.Current == 0 {
-			warnings = append(warnings, fmt.Sprintf("TX power is 0"))
-		}
-		if p.DDM.RxPower.Current == 0 {
-			warnings = append(warnings, fmt.Sprintf("RX power is 0"))
-		}
-
-		if len(warnings) > 0 {
-			portNum := p.PortID
-			pd.PowerWarnings = append(pd.PowerWarnings,
-				fmt.Sprintf("Port %s (link up): %s", portNum, strings.Join(warnings, ", ")))
-		}
-	}
-}
-
 // deriveStatus maps live polling data to a device status using all health
 // signals collected from the EM6 (alarms, temperature, PTP lock, link state)
 // against the configured alert thresholds. slowCount is the device's current
@@ -574,6 +546,29 @@ func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount in
 		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Persistently slow API responses (%d consecutive)", slowCount))
 		if status == models.StatusOnline {
 			status = models.StatusWarning
+		}
+	}
+	// Zero optical power on an active data port (3 or 5) — likely an SFP,
+	// configuration, or firmware problem. Raise a warning.
+	for _, p := range pd.PortDetails {
+		if p.PortID != "3" && p.PortID != "5" {
+			continue
+		}
+		if p.DDM == nil || !strings.EqualFold(p.Link, "up") {
+			continue
+		}
+		var zero []string
+		if p.DDM.TxPower.Current == 0 {
+			zero = append(zero, "TX")
+		}
+		if p.DDM.RxPower.Current == 0 {
+			zero = append(zero, "RX")
+		}
+		if len(zero) > 0 {
+			pd.Alarms = append(pd.Alarms, fmt.Sprintf("Port %s: %s power is 0 (link up)", p.PortID, strings.Join(zero, "/")))
+			if status == models.StatusOnline {
+				status = models.StatusWarning
+			}
 		}
 	}
 
