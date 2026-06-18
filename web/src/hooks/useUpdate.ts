@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 
 const VERSION_KEY = ['version'];
@@ -17,5 +17,18 @@ export function useVersion() {
 export function useApplyUpdate() {
   return useMutation({
     mutationFn: api.applyUpdate,
+  });
+}
+
+// useCheckUpdate forces an immediate re-check against GitHub Releases and writes
+// the fresh status into the version cache, so the About page, the version badge,
+// and the update pop-up all react without an app restart.
+export function useCheckUpdate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.checkUpdate,
+    onSuccess: (status) => {
+      qc.setQueryData(VERSION_KEY, status);
+    },
   });
 }

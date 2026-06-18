@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Server, Clock, Bell, Download, Info, ChevronRight, Layers, Users, Trash2, Plus } from 'lucide-react'
+import { Server, Clock, Bell, Download, Info, ChevronRight, Layers, Users, Trash2, Plus, RefreshCw, CheckCircle2, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
 import { useDevices } from '../hooks/useDevices'
-import { useVersion } from '../hooks/useUpdate'
+import { useVersion, useCheckUpdate } from '../hooks/useUpdate'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { api, downloadWithAuth } from '../api/client'
+import { formatRelativeTime } from '../utils/time'
 import type { Role } from '../types/device'
 
 type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'users' | 'about'
@@ -348,6 +349,25 @@ function BackupRestore() {
 
 function AboutPage() {
   const { data: ver } = useVersion()
+  const { canWrite } = useAuth()
+  const { notify } = useToast()
+  const checkUpdate = useCheckUpdate()
+
+  const handleCheck = () => {
+    checkUpdate.mutate(undefined, {
+      onSuccess: (status) => {
+        if (status.error) {
+          notify('error', `Update check failed: ${status.error}`)
+        } else if (status.update_available) {
+          notify('success', `Update ${status.latest_version} is available.`)
+        } else {
+          notify('info', "You're running the latest version.")
+        }
+      },
+      onError: (e) => notify('error', `Update check failed: ${(e as Error).message}`),
+    })
+  }
+
   return (
     <div className="max-w-md space-y-4">
       <div className="card p-5 space-y-3">
@@ -363,6 +383,56 @@ function AboutPage() {
             </div>
           </div>
         </div>
+
+        {/* Check for updates */}
+        <div className="border-t border-surface-700 pt-3 space-y-2">
+          {canWrite ? (
+            <button
+              onClick={handleCheck}
+              disabled={checkUpdate.isPending}
+              className="btn-secondary text-xs py-1.5"
+            >
+              <RefreshCw className={clsx('w-3.5 h-3.5', checkUpdate.isPending && 'animate-spin')} />
+              {checkUpdate.isPending ? 'Checking…' : 'Check for updates'}
+            </button>
+          ) : (
+            <p className="text-[11px] text-slate-500">An operator or admin can check for updates.</p>
+          )}
+
+          {ver && !checkUpdate.isPending && (
+            ver.update_available ? (
+              <div className="flex items-center gap-2 text-xs text-brand-400">
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Update {ver.latest_version} available
+                  {ver.release_url && (
+                    <a
+                      href={ver.release_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 inline-flex items-center gap-0.5 hover:text-brand-300"
+                    >
+                      release notes <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </span>
+              </div>
+            ) : checkUpdate.isSuccess || ver.checked_at ? (
+              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Up to date</span>
+              </div>
+            ) : null
+          )}
+
+          {ver?.checked_at && (
+            <p className="text-[11px] text-slate-600">Last checked {formatRelativeTime(ver.checked_at)}</p>
+          )}
+          {ver && !ver.enabled && (
+            <p className="text-[11px] text-amber-500/80">Automatic update checks are disabled in configuration.</p>
+          )}
+        </div>
+
         <div className="border-t border-surface-700 pt-3 space-y-2 text-xs text-slate-400">
           <div className="flex justify-between">
             <span className="text-slate-500">Backend</span>
