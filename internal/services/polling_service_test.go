@@ -25,35 +25,35 @@ func TestDeriveStatus(t *testing.T) {
 
 	t.Run("clean device is online", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
-		if got := s.deriveStatus(pd, notSlow); got != models.StatusOnline {
+		if got := s.deriveStatus(pd, notSlow, nil); got != models.StatusOnline {
 			t.Fatalf("got %q, want online", got)
 		}
 	})
 
 	t.Run("warm device warns at the configured threshold", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 72, PTP: lockedPTP}
-		if got := s.deriveStatus(pd, notSlow); got != models.StatusWarning {
+		if got := s.deriveStatus(pd, notSlow, nil); got != models.StatusWarning {
 			t.Fatalf("got %q, want warning", got)
 		}
 	})
 
 	t.Run("transient slowness does NOT warn (backoff)", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
-		if got := s.deriveStatus(pd, SlowWarnAfter-1); got != models.StatusOnline {
+		if got := s.deriveStatus(pd, SlowWarnAfter-1, nil); got != models.StatusOnline {
 			t.Fatalf("got %q, want online (under backoff threshold)", got)
 		}
 	})
 
 	t.Run("sustained slowness warns", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 60, PTP: lockedPTP}
-		if got := s.deriveStatus(pd, SlowWarnAfter); got != models.StatusWarning {
+		if got := s.deriveStatus(pd, SlowWarnAfter, nil); got != models.StatusWarning {
 			t.Fatalf("got %q, want warning", got)
 		}
 	})
 
 	t.Run("PTP not locked is critical", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 60, PTP: &models.PTPStatus{Locked: false}}
-		if got := s.deriveStatus(pd, notSlow); got != models.StatusCritical {
+		if got := s.deriveStatus(pd, notSlow, nil); got != models.StatusCritical {
 			t.Fatalf("got %q, want critical", got)
 		}
 	})
@@ -63,7 +63,7 @@ func TestDeriveStatus(t *testing.T) {
 			CoreTemp: 60, PTP: lockedPTP,
 			PortDetails: []models.PortDetail{{PortID: "3", Link: "down", DDM: &models.SFPDDM{}}},
 		}
-		if got := s.deriveStatus(pd, notSlow); got != models.StatusCritical {
+		if got := s.deriveStatus(pd, notSlow, nil); got != models.StatusCritical {
 			t.Fatalf("got %q, want critical", got)
 		}
 	})
@@ -74,14 +74,14 @@ func TestDeriveStatus(t *testing.T) {
 			CoreTemp: 60, PTP: lockedPTP,
 			PortDetails: []models.PortDetail{{PortID: "1", Link: "down"}},
 		}
-		if got := s.deriveStatus(pd, notSlow); got != models.StatusOnline {
+		if got := s.deriveStatus(pd, notSlow, nil); got != models.StatusOnline {
 			t.Fatalf("got %q, want online", got)
 		}
 	})
 
 	t.Run("hot device is critical and gets an alarm appended", func(t *testing.T) {
 		pd := &models.DevicePollingData{CoreTemp: 80, PTP: lockedPTP}
-		got := s.deriveStatus(pd, notSlow)
+		got := s.deriveStatus(pd, notSlow, nil)
 		if got != models.StatusCritical {
 			t.Fatalf("got %q, want critical", got)
 		}
@@ -122,7 +122,7 @@ func TestDeriveStatusTxPower(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			pd := &models.DevicePollingData{CoreTemp: 60, PTP: locked, Ports: c.ports}
-			if got := s.deriveStatus(pd, 0); got != c.expect {
+			if got := s.deriveStatus(pd, 0, nil); got != c.expect {
 				t.Fatalf("got %q, want %q", got, c.expect)
 			}
 		})

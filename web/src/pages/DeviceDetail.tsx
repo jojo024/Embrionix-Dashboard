@@ -9,8 +9,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
 import { useDevice, useDeviceHistory, usePollDevice, useAlertHistory, useAuditLog } from '../hooks/useDevices'
-import { downloadWithAuth } from '../api/client'
+import { api, downloadWithAuth } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
 import { DeviceConfigTab } from '../components/DeviceConfigTab'
 import { useToast } from '../components/Toast'
@@ -345,62 +346,106 @@ function InterfacesTab({ device }: { device: ReturnType<typeof useDevice>['data'
   )
 }
 
+// DDM alarm keys that are unreliable on decap/encap SFP modules.
+const DECAP_SUPPRESSED_ALARMS = new Set(['low_tx_power', 'low_tx_bias'])
+
 function SFPTab({ device }: { device: ReturnType<typeof useDevice>['data'] }) {
   const pd = device?.polling_data
+
+  const { data: sfpTypeSetting } = useQuery({
+    queryKey: ['settings', 'sfp.port_types'],
+    queryFn: () => api.getSetting('sfp.port_types'),
+    retry: false,
+  })
+
+  const decapPorts = new Set<string>()
+  if (sfpTypeSetting) {
+    try {
+      const parsed = JSON.parse(sfpTypeSetting.value) as Record<string, string>
+      for (const [port, type] of Object.entries(parsed)) {
+        if (type === 'decap') decapPorts.add(port)
+      }
+    } catch { /* no decap ports */ }
+  }
+
   if (!pd?.port_details?.length) {
     return <div className="text-slate-500 text-sm p-4">No SFP data available.</div>
   }
 
   return (
     <div className="space-y-4">
-      {pd.port_details.map(port => (
-        <div key={port.port_id} className="card p-4">
-          <h3 className="font-medium text-slate-100 font-mono text-sm mb-4">{port.port_id}</h3>
-          {port.ddm ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {/* DDM values */}
-              {[
-                { label: 'Temperature', v: port.ddm.temperature, unit: '°C' },
-                { label: 'VCC', v: port.ddm.vcc, unit: 'V' },
-                { label: 'TX Bias', v: port.ddm.tx_bias, unit: 'mA' },
-                { label: 'TX Power', v: port.ddm.tx_power, unit: 'µW' },
-                { label: 'RX Power', v: port.ddm.rx_power, unit: 'µW' },
-              ].map(({ label, v, unit }) => (
-                <div key={label} className="bg-surface-800 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-500">{label}</span>
-                    <span className="text-sm font-bold font-mono text-slate-100">
-                      {v.current.toFixed(2)} <span className="text-xs text-slate-500">{unit}</span>
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 text-xs text-slate-600">
-                    <span>Alarm H: {v.high_alarm}</span>
-                    <span>Alarm L: {v.low_alarm}</span>
-                    <span>Warn H: {v.high_warning}</span>
-                    <span>Warn L: {v.low_warning}</span>
-                  </div>
-                </div>
-              ))}
-
-              {/* Alarm summary */}
-              <div className="bg-surface-800 rounded-lg p-3">
-                <div className="text-xs text-slate-500 mb-2">Active Alarms</div>
-                {Object.entries(port.ddm.alarm_status).some(([, v]) => v) ? (
-                  Object.entries(port.ddm.alarm_status)
-                    .filter(([, v]) => v)
-                    .map(([k]) => (
-                      <div key={k} className="text-xs text-red-400 font-mono">{k.replace(/_/g, ' ')}</div>
-                    ))
-                ) : (
-                  <div className="text-xs text-emerald-400">No alarms</div>
-                )}
-              </div>
+      {pd.port_details.map(port => {
+        const isDecap = decapPorts.has(port.port_id)
+        return (
+          <div key={port.port_id} className="card p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="font-medium text-slate-100 font-mono text-sm">Port {port.port_id}</h3>
+              {isDecap && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  Decap/Encap
+                </span>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-slate-500">No DDM data available for this port.</p>
-          )}
-        </div>
-      ))}
+            {port.ddm ? (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* DDM values */}
+                {[
+                  { label: 'Temperature', v: port.ddm.temperature, unit: '°C' },
+                  { label: 'VCC', v: port.ddm.vcc, unit: 'V' },
+                  { label: 'TX Bias', v: port.ddm.tx_bias, unit: 'mA' },
+                  { label: 'TX Power', v: port.ddm.tx_power, unit: 'µW' },
+                  { label: 'RX Power', v: port.ddm.rx_power, unit: 'µW' },
+                ].map(({ label, v, unit }) => (
+                  <div key={label} className="bg-surface-800 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-slate-500">{label}</span>
+                      <span className="text-sm font-bold font-mono text-slate-100">
+                        {v.current.toFixed(2)} <span className="text-xs text-slate-500">{unit}</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 text-xs text-slate-600">
+                      <span>Alarm H: {v.high_alarm}</span>
+                      <span>Alarm L: {v.low_alarm}</span>
+                      <span>Warn H: {v.high_warning}</span>
+                      <span>Warn L: {v.low_warning}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Alarm summary */}
+                <div className="bg-surface-800 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 mb-2">Active Alarms</div>
+                  {(() => {
+                    const active = Object.entries(port.ddm.alarm_status).filter(([, v]) => v)
+                    const real = active.filter(([k]) => !(isDecap && DECAP_SUPPRESSED_ALARMS.has(k)))
+                    const suppressed = isDecap ? active.filter(([k]) => DECAP_SUPPRESSED_ALARMS.has(k)) : []
+                    if (real.length === 0 && suppressed.length === 0) {
+                      return <div className="text-xs text-emerald-400">No alarms</div>
+                    }
+                    return (
+                      <div className="space-y-1">
+                        {real.map(([k]) => (
+                          <div key={k} className="text-xs text-red-400 font-mono">{k.replace(/_/g, ' ')}</div>
+                        ))}
+                        {suppressed.map(([k]) => (
+                          <div key={k} className="text-xs text-slate-600 font-mono line-through" title="Suppressed — decap/encap port">
+                            {k.replace(/_/g, ' ')}
+                          </div>
+                        ))}
+                        {suppressed.length > 0 && real.length === 0 && (
+                          <div className="text-xs text-emerald-400 mt-1">No alarms</div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">No DDM data available for this port.</p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

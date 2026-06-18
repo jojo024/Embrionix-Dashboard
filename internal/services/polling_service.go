@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -193,6 +195,8 @@ func (s *PollingService) pollAll() {
 	// devices. Capped per device so small fleets aren't needlessly delayed.
 	stagger := staggerStep(len(devices), s.pollCfg.IntervalSeconds)
 
+	decapPorts := s.loadDecapPorts()
+
 	var wg sync.WaitGroup
 	for i, d := range devices {
 		d := d
@@ -201,7 +205,7 @@ func (s *PollingService) pollAll() {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			s.pollDevice(d, full)
+			s.pollDevice(d, full, decapPorts)
 		}()
 		if stagger > 0 && i < len(devices)-1 {
 			select {
@@ -229,7 +233,7 @@ func staggerStep(n, intervalSeconds int) time.Duration {
 	return step
 }
 
-func (s *PollingService) pollDevice(device models.Device, full bool) {
+func (s *PollingService) pollDevice(device models.Device, full bool, decapPorts map[string]bool) {
 	if device.ManagementIPRed == "" && device.ManagementIPBlue == "" {
 		return
 	}
@@ -322,9 +326,16 @@ func (s *PollingService) pollDevice(device models.Device, full bool) {
 		)
 	} else {
 		state.Reachable = true
+
+		// Strip fibre-only DDM alarms (low TX power/bias) from ports whose SFP is
+		// configured as decap/encap — those modules report unreliable optical values.
+		if len(decapPorts) > 0 {
+			pollingData.Alarms = filterDecapAlarms(pollingData.Alarms, decapPorts)
+		}
+
 		state.Data = pollingData
 
-		state.Status = s.deriveStatus(pollingData, device.SlowResponseCount)
+		state.Status = s.deriveStatus(pollingData, device.SlowResponseCount, decapPorts)
 
 		pollResult.Reachable = true
 		temp := pollingData.CoreTemp
@@ -540,7 +551,7 @@ func txPortMonitored(ports []int, port int) bool {
 // signals collected from the EM6 (alarms, temperature, PTP lock, link state)
 // against the configured alert thresholds. slowCount is the device's current
 // run of consecutive slow polls.
-func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount int) models.DeviceStatus {
+func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount int, decapPorts map[string]bool) models.DeviceStatus {
 	a := s.alertCfg
 	status := models.StatusOnline
 	if len(pd.Alarms) > 0 {
@@ -562,9 +573,13 @@ func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount in
 		}
 	}
 	// Zero optical power on an active data port (3 or 5) — likely an SFP,
-	// configuration, or firmware problem. Raise a warning.
+	// configuration, or firmware problem. Raise a warning. Skip for ports
+	// configured as decap/encap since their optical readings are unreliable.
 	for _, p := range pd.PortDetails {
 		if p.PortID != "3" && p.PortID != "5" {
+			continue
+		}
+		if decapPorts[p.PortID] {
 			continue
 		}
 		if p.DDM == nil || !strings.EqualFold(p.Link, "up") {
@@ -590,9 +605,13 @@ func (s *PollingService) deriveStatus(pd *models.DevicePollingData, slowCount in
 		pd.Alarms = append(pd.Alarms, fmt.Sprintf("Core temperature critical (≥%.0f°C)", a.TempCriticalC))
 		status = models.StatusCritical
 	}
-	// SFP TX optical power below the configured dBm thresholds.
+	// SFP TX optical power below the configured dBm thresholds. Skip for ports
+	// configured as decap/encap since their optical readings are unreliable.
 	for _, p := range pd.Ports {
 		if !txPortMonitored(a.TxPowerPorts, p.Port) {
+			continue
+		}
+		if decapPorts[strconv.Itoa(p.Port)] {
 			continue
 		}
 		dbm, ok := microWattToDBm(p.TxPower)
@@ -666,6 +685,59 @@ func (s *PollingService) FleetAlarms(names map[string]string) []FleetAlarm {
 		}
 	}
 	return alarms
+}
+
+// loadDecapPorts reads the "sfp.port_types" app setting and returns the set of
+// port IDs (e.g. "1", "4") that are configured as decap/encap. Returns nil when
+// all ports are fibre (the default / setting absent).
+func (s *PollingService) loadDecapPorts() map[string]bool {
+	val, err := s.pollRepo.GetSetting("sfp.port_types")
+	if err != nil {
+		return nil
+	}
+	var cfg map[string]string
+	if err := json.Unmarshal([]byte(val), &cfg); err != nil {
+		logger.Warn("sfp.port_types setting is malformed; treating all ports as fibre", zap.Error(err))
+		return nil
+	}
+	decap := make(map[string]bool, len(cfg))
+	for port, sfpType := range cfg {
+		if sfpType == "decap" {
+			decap[port] = true
+		}
+	}
+	if len(decap) == 0 {
+		return nil
+	}
+	return decap
+}
+
+// filterDecapAlarms removes DDM alarms that are expected false positives for
+// decap/encap SFP modules (low TX power and low TX bias) so they do not
+// surface as fleet alerts.
+func filterDecapAlarms(alarms []string, decapPorts map[string]bool) []string {
+	out := alarms[:0]
+	for _, a := range alarms {
+		if !isDecapPortAlarm(a, decapPorts) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+func isDecapPortAlarm(alarm string, decapPorts map[string]bool) bool {
+	for portID := range decapPorts {
+		pfx := "Port " + portID + ": "
+		if !strings.HasPrefix(alarm, pfx) {
+			continue
+		}
+		rest := alarm[len(pfx):]
+		// Suppress only fibre-specific optical alarms; keep link-down etc.
+		if strings.HasPrefix(rest, "Low TX power") || strings.HasPrefix(rest, "Low TX bias") {
+			return true
+		}
+	}
+	return false
 }
 
 // Summary returns aggregate counts across all devices.

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Server, Clock, Bell, Download, Info, ChevronRight, Layers, Users, Trash2, Plus, RefreshCw, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Server, Clock, Bell, Download, Info, ChevronRight, Layers, Users, Trash2, Plus, RefreshCw, CheckCircle2, ExternalLink, Cpu } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DevicesPage } from './DevicesPage'
@@ -12,12 +12,13 @@ import { api, downloadWithAuth } from '../api/client'
 import { formatRelativeTime } from '../utils/time'
 import type { Role } from '../types/device'
 
-type Tab = 'devices' | 'polling' | 'alerting' | 'bulk' | 'backup' | 'users' | 'about'
+type Tab = 'devices' | 'polling' | 'alerting' | 'sfp' | 'bulk' | 'backup' | 'users' | 'about'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
   { id: 'devices', label: 'Device Management', icon: Server },
   { id: 'polling', label: 'Polling Configuration', icon: Clock },
   { id: 'alerting', label: 'Alerting', icon: Bell },
+  { id: 'sfp', label: 'SFP Port Types', icon: Cpu },
   { id: 'bulk', label: 'Bulk Configuration', icon: Layers },
   { id: 'backup', label: 'Backup & Restore', icon: Download },
   { id: 'users', label: 'Users & Access', icon: Users, adminOnly: true },
@@ -452,7 +453,118 @@ function AboutPage() {
   )
 }
 
-const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'bulk', 'backup', 'users', 'about']
+// Port layout mirrors the EM6 physical panel: 3 columns, top row odd ports,
+// bottom row even ports.
+const PORT_GRID = [
+  ['1', '3', '5'],
+  ['2', '4', '6'],
+]
+
+type PortTypes = Record<string, 'fiber' | 'decap'>
+
+function SFPPortConfig() {
+  const { notify } = useToast()
+  const { canWrite } = useAuth()
+  const qc = useQueryClient()
+  const [saved, setSaved] = useState(false)
+
+  const defaultTypes: PortTypes = { '1': 'fiber', '2': 'fiber', '3': 'fiber', '4': 'fiber', '5': 'fiber', '6': 'fiber' }
+  const [portTypes, setPortTypes] = useState<PortTypes>(defaultTypes)
+
+  const { data: settingData } = useQuery({
+    queryKey: ['settings', 'sfp.port_types'],
+    queryFn: () => api.getSetting('sfp.port_types'),
+    retry: false,
+  })
+
+  useEffect(() => {
+    if (!settingData) return
+    try {
+      const parsed = JSON.parse(settingData.value) as Record<string, string>
+      setPortTypes({ ...defaultTypes, ...parsed } as PortTypes)
+    } catch { /* use defaults */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingData])
+
+  const toggle = (port: string) => {
+    if (!canWrite) return
+    setPortTypes(prev => ({ ...prev, [port]: prev[port] === 'fiber' ? 'decap' : 'fiber' }))
+  }
+
+  const save = async () => {
+    try {
+      await api.setSetting('sfp.port_types', JSON.stringify(portTypes))
+      qc.invalidateQueries({ queryKey: ['settings', 'sfp.port_types'] })
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      notify('error', `Save failed: ${(e as Error).message}`)
+    }
+  }
+
+  return (
+    <div className="max-w-lg space-y-5">
+      <div>
+        <h2 className="text-sm font-medium text-slate-100 mb-1">SFP Port Types</h2>
+        <p className="text-xs text-slate-500">
+          Mark each port as <strong className="text-slate-300">Fibre</strong> or{' '}
+          <strong className="text-slate-300">Decap/Encap</strong>. Decap/encap modules
+          report unreliable TX power and TX bias readings — those alarms will be suppressed
+          for marked ports.
+        </p>
+      </div>
+
+      {/* Device panel mockup — 3×2 grid */}
+      <div className="card p-5">
+        <div className="text-xs text-slate-500 mb-3 font-mono uppercase tracking-wider">EM6 — SFP Panel</div>
+        <div className="grid grid-cols-3 gap-2">
+          {PORT_GRID.map((row, ri) =>
+            row.map(port => {
+              const isDecap = portTypes[port] === 'decap'
+              return (
+                <button
+                  key={`${ri}-${port}`}
+                  onClick={() => toggle(port)}
+                  disabled={!canWrite}
+                  className={clsx(
+                    'relative rounded-lg border p-3 text-left transition-all',
+                    canWrite ? 'cursor-pointer hover:brightness-110' : 'cursor-default',
+                    isDecap
+                      ? 'bg-amber-500/10 border-amber-500/40 hover:border-amber-400/60'
+                      : 'bg-emerald-500/10 border-emerald-500/40 hover:border-emerald-400/60',
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold font-mono text-slate-200">P{port}</span>
+                    <Cpu className={clsx('w-3.5 h-3.5', isDecap ? 'text-amber-400' : 'text-emerald-400')} />
+                  </div>
+                  <div className={clsx('text-[10px] font-medium', isDecap ? 'text-amber-400' : 'text-emerald-400')}>
+                    {isDecap ? 'Decap/Encap' : 'Fibre'}
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex gap-4 text-[11px] text-slate-500">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-emerald-500/50 inline-block" />Fibre — alarms active</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500/50 inline-block" />Decap/Encap — TX power/bias alarms suppressed</span>
+        </div>
+      </div>
+
+      {canWrite ? (
+        <button className="btn-primary" onClick={save}>
+          {saved ? '✓ Saved' : 'Save Changes'}
+        </button>
+      ) : (
+        <p className="text-xs text-slate-500">An operator or admin can change port type configuration.</p>
+      )}
+    </div>
+  )
+}
+
+const VALID_TABS: Tab[] = ['devices', 'polling', 'alerting', 'sfp', 'bulk', 'backup', 'users', 'about']
 
 export function SettingsPage() {
   const { tab } = useParams<{ tab?: string }>()
@@ -502,6 +614,7 @@ export function SettingsPage() {
           {activeTab === 'devices'  && <DevicesPage />}
           {activeTab === 'polling'  && <PollingSettings />}
           {activeTab === 'alerting' && <AlertingSettings />}
+          {activeTab === 'sfp'      && <SFPPortConfig />}
           {activeTab === 'bulk'     && <BulkConfigSettings />}
           {activeTab === 'backup'   && <BackupRestore />}
           {activeTab === 'users'    && <UsersSettings />}
