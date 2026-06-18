@@ -16,7 +16,7 @@ import { DeviceConfigTab } from '../components/DeviceConfigTab'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDate, formatRelativeTime } from '../utils/time'
-import { parseFirmwareVersion } from '../utils/firmware'
+import { readableFirmware } from '../utils/firmware'
 
 type Tab = 'overview' | 'interfaces' | 'sfp' | 'monitoring' | 'config' | 'logs'
 
@@ -104,7 +104,7 @@ function OverviewTab({ device }: { device: ReturnType<typeof useDevice>['data'] 
           <InfoRow label="Name" value={device.name} />
           <InfoRow label="Model" value={device.model || pd?.device_type} />
           <InfoRow label="Serial Number" value={device.serial_number} mono />
-          <InfoRow label="Firmware" value={parseFirmwareVersion(device.firmware_version || pd?.current_version).readable} mono />
+          <InfoRow label="Firmware" value={readableFirmware(pd, device.firmware_version)} mono />
           <InfoRow label="emSFP Version" value={pd?.emsfp_version} mono />
           <InfoRow label="Platform HW" value={pd?.platform_hw_version} mono />
           <InfoRow label="Hostname" value={pd?.hostname} mono />

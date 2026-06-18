@@ -7,7 +7,7 @@ import { StatusBadge } from './StatusBadge';
 import { Sparkline } from './Sparkline';
 import { useDeviceSparkline } from '../hooks/useDevices';
 import { formatRelativeTime } from '../utils/time';
-import { parseFirmwareVersion } from '../utils/firmware';
+import { readableFirmware } from '../utils/firmware';
 import { powerTodBm, txPowerClass } from '../utils/optics';
 
 interface Props {
@@ -228,7 +228,7 @@ export function DeviceCard({ device }: Props) {
       {/* Footer */}
       <div className="px-4 py-2 border-t border-surface-800 flex items-center justify-between">
         <span className="text-xs text-slate-600 font-mono" title={pd?.current_version || device.firmware_version}>
-          {parseFirmwareVersion(pd?.current_version || device.firmware_version).readable}
+          {readableFirmware(pd, device.firmware_version)}
         </span>
         <span className="text-xs text-slate-600">
           {device.last_polled_at ? formatRelativeTime(device.last_polled_at) : 'Never polled'}
