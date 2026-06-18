@@ -170,8 +170,11 @@ App (React 18 + TypeScript + Vite)
 
 ### Version & Release
 - Single source of truth: `internal/version.Version` (injected via ldflags at build time)
-- Release workflow: `git tag vX.Y.Z && git push --tags` triggers GitHub Actions → per-platform binaries + `checksums.txt`
+- Release workflow: `git tag vX.Y.Z && git push origin vX.Y.Z` triggers GitHub Actions → per-platform binaries + `checksums.txt`
 - Self-update downloads matching binary, verifies SHA-256 vs checksums.txt, swaps in-place via `minio/selfupdate`, relaunches
+- **⚠️ NEVER run `gh release create` (or otherwise create the GitHub release by hand).** The `.github/workflows/release.yml` workflow is the *sole* creator of releases: on tag push it builds 5 platform binaries (uploads as a draft) then the `checksums` job publishes the release with `checksums.txt`. Just push the tag and let the workflow do everything.
+- **This repo has immutable releases enabled.** A manually-created release has no binaries and blocks the workflow from attaching them (`target_commitish cannot be changed when release is immutable`). Worse, once a tag is used by an immutable release, GitHub **permanently burns that tag name** — even after deleting the release, that tag can never be reused (`tag_name was used by an immutable release`). Recovery = cut a fresh `vX.Y.Z` tag and push tag-only. (This is what killed v0.7.9 and v0.7.10; v0.7.11 was the first clean release.)
+- To verify a release succeeded: `gh release view vX.Y.Z --json assets,isDraft` should show `isDraft: false` and 11 assets (5 binaries + 5 `.sha256` + `checksums.txt`).
 
 ---
 
