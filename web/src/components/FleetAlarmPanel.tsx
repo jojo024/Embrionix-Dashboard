@@ -11,7 +11,9 @@ const COLLAPSE_KEY = 'emb:alarms-collapsed'
 // The list can be collapsed (state remembered) to keep the dashboard uncluttered.
 export function FleetAlarmPanel() {
   const { data, isLoading } = useFleetAlarms()
-  const alarms = data?.alarms ?? []
+  const allAlarms = data?.alarms ?? []
+  // Filter out offline devices from active warnings
+  const alarms = allAlarms.filter(a => a.status !== 'offline')
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   )

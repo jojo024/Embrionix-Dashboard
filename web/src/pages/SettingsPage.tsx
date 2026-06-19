@@ -255,11 +255,32 @@ function AlertingSettings() {
   )
 }
 
+type PollingPreset = 'slow' | 'normal' | 'aggressive' | 'custom'
+
+const POLLING_PRESETS = {
+  slow: { interval: 60, label: 'Slow', description: 'Poll every 60s (low network/device impact)' },
+  normal: { interval: 30, label: 'Normal', description: 'Poll every 30s (default, balanced)' },
+  aggressive: { interval: 10, label: 'Aggressive', description: 'Poll every 10s (high responsiveness)' },
+}
+
 function PollingSettings() {
   const [interval, setIntervalVal] = useState('30')
   const [timeout, setTimeoutVal] = useState('10')
   const [retries, setRetries] = useState('2')
   const [saved, setSaved] = useState(false)
+
+  // Determine current preset
+  const currentPreset: PollingPreset =
+    interval === '60' ? 'slow' :
+    interval === '30' ? 'normal' :
+    interval === '10' ? 'aggressive' :
+    'custom'
+
+  const applyPreset = (preset: PollingPreset) => {
+    if (preset !== 'custom') {
+      setIntervalVal(String(POLLING_PRESETS[preset].interval))
+    }
+  }
 
   const save = async () => {
     await Promise.all([
@@ -274,10 +295,32 @@ function PollingSettings() {
   return (
     <div className="max-w-md space-y-5">
       <div>
-        <label className="label">Poll Interval (seconds)</label>
+        <label className="label">Polling Aggressiveness</label>
+        <div className="space-y-2">
+          {Object.entries(POLLING_PRESETS).map(([key, preset]) => (
+            <button
+              key={key}
+              onClick={() => applyPreset(key as PollingPreset)}
+              className={clsx(
+                'w-full text-left px-3 py-2.5 rounded-lg border transition-all',
+                currentPreset === key
+                  ? 'bg-brand-600/20 border-brand-500/40 text-brand-300'
+                  : 'bg-surface-800 border-surface-700 text-slate-400 hover:text-slate-200 hover:border-surface-600',
+              )}
+            >
+              <div className="text-sm font-medium capitalize">{preset.label}</div>
+              <div className="text-xs text-slate-500">{preset.description}</div>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Or set a custom interval below.</p>
+      </div>
+
+      <div>
+        <label className="label">Custom Poll Interval (seconds)</label>
         <input type="number" min={10} max={3600} value={interval}
           onChange={e => setIntervalVal(e.target.value)} className="input" />
-        <p className="text-xs text-slate-500 mt-1">How often to poll each device. Minimum 10s.</p>
+        <p className="text-xs text-slate-500 mt-1">How often to poll each device. Minimum 10s, maximum 3600s.</p>
       </div>
       <div>
         <label className="label">Request Timeout (seconds)</label>

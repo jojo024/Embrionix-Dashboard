@@ -45,7 +45,7 @@ export function UpdateNotification() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 bg-surface-900 border border-brand-500/40 rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+    <div className="fixed bottom-[calc(1rem+5rem)] right-4 z-50 w-80 bg-surface-900 border border-brand-500/40 rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
       <div className="px-4 py-3 bg-brand-500/10 border-b border-brand-500/20 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Download className="w-4 h-4 text-brand-400" />
