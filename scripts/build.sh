@@ -15,6 +15,19 @@ echo "--> Building frontend..."
 # Build backend
 echo "--> Building backend (linux/amd64)..."
 mkdir -p "${OUTPUT_DIR}"
+
+# For Windows builds, prepare rsrc + icon (requires ImageMagick + rsrc tool)
+# On Linux/macOS, skip icon embedding
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    echo "--> Preparing Windows icon..."
+    if [ -f "cmd/server/favicon.ico" ]; then
+        go install github.com/akavel/rsrc@latest
+        (cd cmd/server && rsrc -ico favicon.ico)
+    else
+        echo "    Icon not found. Skipping rsrc. Run: ./scripts/icon-setup.ps1 on Windows"
+    fi
+fi
+
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build \
     -ldflags="-s -w -X main.Version=${VERSION}" \

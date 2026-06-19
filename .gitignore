@@ -5,6 +5,9 @@
 *.test
 *.out
 coverage.out
+cmd/server/rsrc*.syso
+cmd/server/favicon.ico
+cmd/icon-generator/icon-generator*
 
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 web/node_modules/
