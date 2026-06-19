@@ -59,6 +59,17 @@ jobs:
           mkdir -p internal/webui/dist
           cp -r web/dist/* internal/webui/dist/
 
+      - name: Generate Windows icon (Windows build only)
+        if: matrix.goos == 'windows'
+        run: |
+          go run ./cmd/icon-generator/main.go cmd/server/favicon.ico
+
+      - name: Embed Windows icon via rsrc (Windows build only)
+        if: matrix.goos == 'windows'
+        run: |
+          go install github.com/akavel/rsrc@latest
+          cd cmd/server && rsrc -ico favicon.ico
+
       - name: Build backend (self-contained binary)
         env:
           GOOS: ${{ matrix.goos }}
